@@ -6,6 +6,34 @@ This project was born out of the need to make it easier to compile statistics on
 
 这是一个 Django + PostgreSQL + Celery 的团队训练平台。当前版本保留了原有前端视觉，并提供团队、学期、周次、提交审核、展示权限、排行榜、成员历史和 Excel 导出接口。
 
+## 界面展示
+
+### 训练总览
+
+工作台以当前周训练目标、积分进度和下一步提交动作作为入口。
+
+![训练总览](docs/screenshots/dashboard.png)
+
+### 提交成功反馈
+
+提交成功后，页面会显示明确的反馈状态，并将记录送入审核队列。
+
+![提交成功](docs/screenshots/submission-success.png)
+
+### 管理员审核工作台
+
+管理员可以集中处理待审核提交、查看材料并配置展示权限。
+
+![管理员审核工作台](docs/screenshots/admin-review.png)
+
+### 提交展示
+
+团队成员可以在权限允许的范围内浏览已通过的训练材料。
+
+![提交展示](docs/screenshots/showcase.png)
+
+> 其他页面截图可继续补充到 `docs/screenshots/`，并在本节追加对应的 Markdown 图片引用。
+
 ## 本地启动
 
 1. 安装 Docker Desktop，并确保代理可以拉取 Docker Hub 镜像。
