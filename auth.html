@@ -1,0 +1,120 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>进入算法社团训练台</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body{display:grid;place-items:center;min-height:100vh;padding:34px;background:#f5fbf8}.auth-shell{width:min(1120px,100%);display:grid;grid-template-columns:minmax(0,1fr) 430px;gap:clamp(44px,8vw,120px);align-items:center}.auth-story{position:relative;min-height:510px;padding:24px 0 24px 28px;display:flex;flex-direction:column;justify-content:center;overflow:hidden}.auth-story:before{content:"";position:absolute;inset:0 10% 0 0;border-radius:34px;background:#203d46;transform:rotate(-3deg);box-shadow:0 24px 50px rgba(21,63,69,.16)}.auth-story:after{content:"";position:absolute;width:330px;height:330px;right:5%;bottom:-100px;border:1px solid rgba(241,208,125,.65);border-radius:50%;box-shadow:0 0 0 24px rgba(241,208,125,.08),0 0 0 48px rgba(241,208,125,.04)}.auth-story>*{position:relative;z-index:1}.auth-story-label{color:#a7d9d0;font-size:10px;letter-spacing:.18em;font-weight:700}.auth-story h1{max-width:8em;color:#f6fffb;font:500 clamp(40px,5vw,76px)/.98 Georgia,"Noto Serif SC","Songti SC",serif;letter-spacing:-.045em;margin:30px 0 18px}.auth-story p{max-width:31em;color:#b8d7d5;font-size:13px;line-height:1.8;margin:0}.auth-story-stat{display:flex;gap:10px;flex-wrap:wrap;margin-top:32px}.auth-story-stat span{padding:9px 12px;border:1px solid rgba(183,236,227,.25);border-radius:999px;color:#ecfffa;font-size:11px;background:rgba(255,255,255,.05)}.auth-brand{display:flex;align-items:center;gap:10px;margin-bottom:28px}.auth-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:28px;box-shadow:var(--shadow)}.auth-tabs{display:flex;gap:4px;background:#f2f6f4;padding:3px;border-radius:7px;margin-bottom:24px}.auth-tabs button{flex:1;padding:9px;border-radius:5px;font-size:12px;color:var(--muted)}.auth-tabs button.active{background:#fff;color:var(--teal-dark);font-weight:700;box-shadow:0 1px 4px rgba(28,71,61,.08)}.auth-form{display:none}.auth-form.active{display:block}.auth-form h1{font-size:22px;margin:0 0 8px}.auth-form>p{font-size:12px;color:var(--muted);margin:0 0 22px}.auth-field{display:block;font-size:11px;font-weight:700;margin:14px 0}.auth-field input{display:block;width:100%;border:1px solid var(--line);border-radius:7px;padding:11px 12px;margin-top:7px;outline:0;font-size:12px}.auth-field input:focus{border-color:#8bcfc6;box-shadow:0 0 0 3px #e9f7f5}.auth-submit{width:100%;margin-top:8px}.auth-message{min-height:18px;color:#c26e65;font-size:11px;margin-top:12px}.auth-hint{font-size:10px;color:#9aa7a5;text-align:center;margin-top:18px}@media(max-width:760px){body{padding:18px}.auth-shell{display:block;width:min(430px,100%)}.auth-story{display:none}.auth-card{padding:24px}.auth-brand{margin-bottom:20px}}
+    .auth-shell{width:min(1120px,100%)!important}.auth-entry{width:min(430px,100%);justify-self:center}
+  </style>
+  <style>
+    /* Pulse Field entry treatment: a measured field of light around the existing login flow. */
+    body:has(.auth-shell){
+      position:relative;
+      overflow-x:hidden;
+      min-height:100svh;
+      padding:clamp(24px,5vw,72px) clamp(18px,6vw,92px)!important;
+      background:#f7f8f5;
+      isolation:isolate;
+    }
+    body:has(.auth-shell)::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      z-index:-3;
+      background:
+        linear-gradient(rgba(28,58,73,.055) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(28,58,73,.055) 1px,transparent 1px),
+        radial-gradient(circle at 19% 18%,rgba(236,183,74,.16),transparent 24%),
+        radial-gradient(circle at 84% 72%,rgba(65,135,227,.13),transparent 28%);
+      background-size:42px 42px,42px 42px,100% 100%,100% 100%;
+      mask-image:linear-gradient(to bottom,rgba(0,0,0,.9),rgba(0,0,0,.45));
+      animation:field-drift 18s linear infinite;
+    }
+    body:has(.auth-shell)::after{
+      content:"";
+      position:fixed;
+      z-index:-2;
+      width:min(58vw,760px);
+      aspect-ratio:1;
+      left:-14vw;
+      bottom:-42vw;
+      border:1px solid rgba(42,110,157,.2);
+      border-radius:50%;
+      box-shadow:0 0 0 26px rgba(42,110,157,.05),0 0 0 56px rgba(236,183,74,.07),0 0 0 98px rgba(42,110,157,.04);
+      animation:field-breathe 7s ease-in-out infinite;
+    }
+    .auth-shell{position:relative;z-index:1;width:min(1220px,100%)!important;grid-template-columns:minmax(0,1.08fr) minmax(360px,430px);gap:clamp(48px,8vw,140px)}
+    .auth-shell::before,.auth-shell::after{content:"";position:absolute;pointer-events:none;z-index:-1}
+    .auth-shell::before{width:11px;height:11px;left:49%;top:8%;border-radius:50%;background:#ecb74a;box-shadow:0 0 0 8px rgba(236,183,74,.12),0 0 24px rgba(236,183,74,.25);animation:field-node 3.8s ease-in-out infinite}
+    .auth-shell::after{width:7px;height:7px;right:2%;bottom:8%;border-radius:50%;background:#3e82dc;box-shadow:0 0 0 7px rgba(62,130,220,.11),0 0 20px rgba(62,130,220,.22);animation:field-node 4.4s ease-in-out .8s infinite reverse}
+    .auth-story{min-height:clamp(530px,68vh,690px);padding:clamp(34px,5vw,64px) clamp(32px,5vw,78px);justify-content:center;transform:rotate(-1.4deg);animation:field-story-in 900ms cubic-bezier(.16,1,.3,1) both}
+    .auth-story:before{inset:0;border-radius:30px 54px 38px 46px;transform:none;background:#203d46;box-shadow:22px 25px 0 rgba(235,184,77,.13),0 30px 70px rgba(21,63,69,.18)}
+    .auth-story:after{width:420px;height:420px;right:-4%;bottom:-160px;border-color:rgba(241,208,125,.76);box-shadow:0 0 0 22px rgba(241,208,125,.1),0 0 0 48px rgba(241,208,125,.05),0 0 0 88px rgba(116,205,192,.05);animation:field-orbit 16s linear infinite}
+    .auth-story h1{max-width:11ch;font-size:clamp(42px,5.5vw,78px);line-height:1.04;letter-spacing:-.03em;margin:28px 0 24px;overflow-wrap:normal;word-break:keep-all;animation:field-title-in 900ms cubic-bezier(.16,1,.3,1) 120ms both}
+    .auth-story p{max-width:35em;font-size:14px;animation:field-copy-in 720ms cubic-bezier(.16,1,.3,1) 300ms both}
+    .auth-story-stat{margin-top:38px;animation:field-copy-in 720ms cubic-bezier(.16,1,.3,1) 420ms both}
+    .auth-story-stat span{padding:10px 14px;border-color:rgba(183,236,227,.34);background:rgba(255,255,255,.07)}
+    .auth-entry{animation:field-entry-in 900ms cubic-bezier(.16,1,.3,1) 180ms both}
+    .auth-brand{margin-bottom:24px;animation:field-copy-in 620ms cubic-bezier(.16,1,.3,1) 340ms both}
+    .auth-card{border-color:#d8e0e1;border-radius:20px;padding:30px;box-shadow:0 18px 42px rgba(36,62,77,.11);background:rgba(255,255,253,.96);animation:field-card-in 780ms cubic-bezier(.16,1,.3,1) 420ms both}
+    .auth-tabs{margin-bottom:27px;background:#eff2ed!important;border-radius:999px!important;padding:4px}
+    .auth-tabs button{min-height:34px;border-radius:999px;font-size:11px}
+    .auth-tabs button.active{box-shadow:0 3px 10px rgba(33,69,79,.12)!important}
+    .auth-form h1{font-size:25px;line-height:1.2;margin-bottom:10px}
+    .auth-form>p{font-size:12px;line-height:1.65;margin-bottom:24px}
+    .auth-field{font-size:12px;margin:16px 0}
+    .auth-field input{min-height:46px;border-radius:11px!important;background:#fbfcfa!important;font-size:13px;padding:12px 13px}
+    .auth-submit{min-height:48px;border-radius:12px!important;margin-top:12px;box-shadow:0 12px 22px rgba(36,104,232,.2)}
+    .auth-message{font-size:12px}
+    .auth-hint{font-size:11px;line-height:1.65;margin-top:16px}
+    @keyframes field-drift{from{background-position:0 0,0 0,0 0,0 0}to{background-position:42px 42px,-42px 42px,0 0,0 0}}
+    @keyframes field-breathe{0%,100%{transform:scale(.94);opacity:.65}50%{transform:scale(1.04);opacity:1}}
+    @keyframes field-node{0%,100%{transform:translate3d(0,0,0);opacity:.66}50%{transform:translate3d(10px,-16px,0);opacity:1}}
+    @keyframes field-orbit{to{transform:rotate(360deg)}}
+    @keyframes field-story-in{0%{opacity:0;transform:translate3d(-38px,26px,0) rotate(-4deg);clip-path:inset(0 100% 0 0)}60%{opacity:1;clip-path:inset(0 0 0 0)}100%{transform:translate3d(0,0,0) rotate(-1.4deg)}}
+    @keyframes field-title-in{0%{opacity:0;transform:translateY(24px);filter:blur(10px)}100%{opacity:1;transform:translateY(0);filter:blur(0)}}
+    @keyframes field-copy-in{0%{opacity:0;transform:translateY(15px)}100%{opacity:1;transform:translateY(0)}}
+    @keyframes field-entry-in{0%{opacity:0;transform:translate3d(34px,24px,0)}100%{opacity:1;transform:translate3d(0,0,0)}}
+    @keyframes field-card-in{0%{opacity:0;transform:translateY(22px) scale(.96);box-shadow:0 0 0 rgba(36,62,77,0)}100%{opacity:1;transform:translateY(0) scale(1);box-shadow:0 18px 42px rgba(36,62,77,.11)}}
+    @media(max-width:900px){
+      body:has(.auth-shell){padding:28px 20px!important}
+      .auth-shell{grid-template-columns:1fr;gap:30px;width:min(620px,100%)!important}
+      .auth-story{min-height:330px;padding:34px 34px 38px;transform:rotate(-.8deg)}
+      .auth-story h1{font-size:clamp(40px,8vw,62px);max-width:10ch;margin-top:20px}
+      .auth-story:after{width:300px;height:300px;right:-6%;bottom:-150px}
+      .auth-entry{width:min(430px,100%);justify-self:center}
+    }
+    @media(max-width:600px){
+      body:has(.auth-shell){padding:18px 14px 30px!important}
+      .auth-shell{gap:22px}
+      .auth-story{min-height:275px;padding:28px 24px 30px;border-radius:22px}
+      .auth-story h1{font-size:clamp(34px,10vw,48px);max-width:9ch;line-height:1.05;margin:16px 0 14px}
+      .auth-story p{font-size:12px;max-width:28em;line-height:1.65}
+      .auth-story-stat{gap:7px;margin-top:22px}
+      .auth-story-stat span{font-size:10px;padding:8px 10px}
+      .auth-card{padding:24px 20px}
+      .auth-brand{margin-left:2px}
+      .auth-shell::before{left:auto;right:8%;top:2%}
+    }
+  </style>
+</head>
+<body>
+  <main class="auth-shell">
+    <section class="auth-story" aria-label="训练台介绍"><span class="auth-story-label">PULSE ATLAS · ALGORITHM CLUB</span><h1>把每一周，写成你的进步。</h1><p>提交截图、写题逻辑和 Blog，把个人训练变成团队看得见的节奏。</p><div class="auth-story-stat"><span>每周训练</span><span>审核反馈</span><span>积分成长</span></div></section>
+    <div class="auth-entry">
+    <div class="auth-brand"><div class="brand-mark">A</div><div><div class="brand-name">算法社团</div><div class="brand-subtitle">训练台</div></div></div>
+    <section class="auth-card">
+      <div class="auth-tabs"><button class="active" type="button">登录</button></div>
+      <form class="auth-form active" id="loginForm"><h1>账号登录</h1><p>先使用账号密码登录，再选择要进入的团队。</p><label class="auth-field">账号<input name="account" autocomplete="username" required placeholder="你的账号…" /></label><label class="auth-field">密码<input name="password" autocomplete="current-password" required type="password" placeholder="请输入密码…" /></label><button class="primary-button auth-submit" type="submit">登录 <span>→</span></button></form>
+      <div class="auth-message" id="authMessage" role="status" aria-live="polite"></div>
+    </section>
+    <p class="auth-hint"><a href="/register.html" style="color:var(--teal-dark);font-weight:700">注册新账号</a><br>你的密码仅用于平台登录，平台不会收集牛客或 LeetCode 密码。</p>
+    </div>
+  </main>
+  <script src="api.js"></script>
+  <script src="auth.js"></script>
+</body>
+</html>

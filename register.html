@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>注册账号</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body{display:grid;place-items:center;min-height:100vh;padding:34px;background:#f5fbf8}
+    .auth-shell{width:min(1120px,100%)!important;display:grid;grid-template-columns:minmax(0,1fr) 430px;gap:clamp(44px,8vw,120px);align-items:center}
+    .auth-entry{width:min(430px,100%);justify-self:center}
+    .auth-story{position:relative;min-height:510px;padding:24px 0 24px 28px;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
+    .auth-story:before{content:"";position:absolute;inset:0 10% 0 0;border-radius:34px;background:#203d46;transform:rotate(-3deg);box-shadow:0 24px 50px rgba(21,63,69,.16)}
+    .auth-story:after{content:"";position:absolute;width:330px;height:330px;right:5%;bottom:-100px;border:1px solid rgba(241,208,125,.65);border-radius:50%;box-shadow:0 0 0 24px rgba(241,208,125,.08),0 0 0 48px rgba(241,208,125,.04)}
+    .auth-story>*{position:relative;z-index:1}.auth-story-label{color:#a7d9d0;font-size:10px;letter-spacing:.18em;font-weight:700}
+    .auth-story h1{max-width:8em;color:#f6fffb;font:500 clamp(40px,5vw,76px)/.98 Georgia,"Noto Serif SC","Songti SC",serif;letter-spacing:-.045em;margin:30px 0 18px}
+    .auth-story p{max-width:31em;color:#b8d7d5;font-size:13px;line-height:1.8;margin:0}.auth-story-stat{display:flex;gap:10px;flex-wrap:wrap;margin-top:32px}
+    .auth-story-stat span{padding:9px 12px;border:1px solid rgba(183,236,227,.25);border-radius:999px;color:#ecfffa;font-size:11px;background:rgba(255,255,255,.05)}
+    .auth-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:30px;box-shadow:var(--shadow)}.auth-card h1{margin:0 0 8px;font-size:25px}.auth-card>p{margin:0 0 24px}
+    .auth-field{display:block;font-size:11px;font-weight:700;margin:0 0 17px}.auth-field input{display:block;width:100%;border:1px solid var(--line);border-radius:8px;padding:12px;margin-top:7px}.auth-submit{width:100%;margin-top:8px}.back-link{display:block;text-align:center;margin-top:15px;color:var(--teal-dark);font-size:12px}
+    @media(max-width:760px){body{padding:18px}.auth-shell{display:block;width:min(430px,100%)!important}.auth-story{display:none}.auth-card{padding:24px}}
+  </style>
+</head>
+<body>
+  <main class="auth-shell">
+    <section class="auth-story" aria-label="训练台介绍"><span class="auth-story-label">PULSE ATLAS · ALGORITHM CLUB</span><h1>把每一周，写成你的进步。</h1><p>提交截图、写题逻辑和 Blog，把个人训练变成团队看得见的节奏。</p><div class="auth-story-stat"><span>每周训练</span><span>审核反馈</span><span>积分成长</span></div></section>
+    <div class="auth-entry">
+      <section class="auth-card"><p class="kicker">NEW ACCOUNT</p><h1>注册账号</h1><p class="muted">注册后暂不绑定团队，登录后再选择加入或创建团队。</p><form id="form"><label class="auth-field">账号<input name="account" autocomplete="username" minlength="3" required placeholder="至少 3 位"></label><label class="auth-field">密码<input name="password" autocomplete="new-password" type="password" minlength="8" required placeholder="至少 8 位"></label><label class="auth-field">确认密码<input name="confirm_password" autocomplete="new-password" type="password" minlength="8" required placeholder="再次输入密码"></label><button class="primary-button auth-submit" type="submit">注册账号</button></form><a class="back-link" href="/auth.html">返回登录</a><div id="message" class="auth-message" role="status" aria-live="polite"></div></section>
+    </div>
+  </main>
+  <script src="api.js"></script>
+  <script>
+    const f=document.querySelector('#form'),m=document.querySelector('#message');
+    f.addEventListener('submit',async e=>{e.preventDefault();const button=f.querySelector('button[type="submit"]');if(button?.disabled)return;const label=button?.textContent||'注册账号';if(button){button.disabled=true;button.setAttribute('aria-busy','true');button.textContent='正在创建…'}m.textContent='正在创建账号…';const d=Object.fromEntries(new FormData(f));if(d.password!==d.confirm_password){m.textContent='两次密码不一致';if(button){button.disabled=false;button.removeAttribute('aria-busy');button.textContent=label}return}try{const r=await clubApi.request('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});const j=await r.json().catch(()=>({}));if(r.ok)location.href='/team-select.html';else m.textContent=j.error||`注册失败（${r.status}）`}catch(error){m.textContent=error.message||'网络连接失败，请确认网站服务正常'}finally{if(button){button.disabled=false;button.removeAttribute('aria-busy');button.textContent=label}}});
+  </script>
+</body>
+</html>

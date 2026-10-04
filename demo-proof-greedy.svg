@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
+  <title id="title">区间覆盖题通过截图演示</title>
+  <desc id="desc">算法题在线评测通过截图，显示 Accepted 结果。</desc>
+  <rect width="960" height="540" fill="#eef4fc"/>
+  <rect x="32" y="30" width="896" height="480" rx="16" fill="#ffffff" stroke="#d7e2f0" stroke-width="2"/>
+  <rect x="32" y="30" width="896" height="62" rx="16" fill="#162d50"/>
+  <circle cx="68" cy="61" r="8" fill="#e87566"/><circle cx="94" cy="61" r="8" fill="#f3c94f"/><circle cx="120" cy="61" r="8" fill="#5bc39c"/>
+  <text x="158" y="68" fill="#ffffff" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="21" font-weight="700">区间覆盖 · 提交结果</text>
+  <text x="72" y="142" fill="#657790" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="17">王同学 · 第 4 次提交</text>
+  <rect x="72" y="170" width="816" height="74" rx="12" fill="#e9f0ff"/>
+  <circle cx="112" cy="207" r="20" fill="#2468e8"/>
+  <path d="M101 207l8 8 16-18" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="152" y="204" fill="#162d50" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="23" font-weight="700">Accepted</text>
+  <text x="152" y="229" fill="#5574a0" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="16">通过 · 运行时间 48 ms · 内存 18.2 MB</text>
+  <text x="72" y="288" fill="#162d50" font-family="Consolas, monospace" font-size="16">sort(intervals.begin(), intervals.end());</text>
+  <text x="72" y="320" fill="#5574a0" font-family="Consolas, monospace" font-size="16">covered += chooseRightEndpoint(intervals);</text>
+  <text x="72" y="352" fill="#5574a0" font-family="Consolas, monospace" font-size="16">complexity: O(n log n)</text>
+  <rect x="72" y="410" width="190" height="42" rx="10" fill="#f5f8fc" stroke="#d7e2f0"/>
+  <text x="94" y="437" fill="#2f62aa" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="16" font-weight="700">截图已审核 · +1 分</text>
+</svg>

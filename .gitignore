@@ -1,0 +1,22 @@
+# Secrets and local environment files
+.env
+.env.*
+!.env.example
+
+# Runtime data and generated files
+backups/
+media/
+staticfiles/
+__pycache__/
+*.py[cod]
+
+# Local browser/session artifacts
+_cookie_tmp/
+.impeccable/
+
+# Editor and OS files
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+Desktop.ini

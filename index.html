@@ -1,0 +1,185 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f5f8fc" />
+    <title>算法社团训练台</title>
+    <link rel="stylesheet" href="styles.css?v=pulse-atlas-feedback-7" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="主导航">
+        <div class="brand">
+          <div class="brand-mark">A</div>
+          <div>
+            <div class="brand-name">算法社团</div>
+            <div class="brand-subtitle">训练台</div>
+          </div>
+        </div>
+
+        <div class="team-switcher">
+          <span class="eyebrow">当前团队</span>
+          <button class="team-button" id="teamButton" type="button" aria-haspopup="listbox">
+            <span class="team-avatar">AC</span>
+            <span class="team-button-copy">
+              <strong id="teamName">ACM 校队</strong>
+              <small>秋季训练营</small>
+            </span>
+            <span class="chevron">⌄</span>
+          </button>
+          <div class="team-menu" id="teamMenu" role="listbox" aria-label="切换团队"></div>
+        </div>
+
+        <nav class="nav-list">
+          <button class="nav-item active" data-view="dashboard" type="button"><span class="nav-icon">⌂</span>总览</button>
+          <button class="nav-item" data-view="submissions" type="button"><span class="nav-icon">□</span>我的提交</button>
+          <button class="nav-item" data-view="leaderboard" type="button"><span class="nav-icon">↗</span>排行榜</button>
+          <button class="nav-item" data-view="arena" type="button"><span class="nav-icon">✦</span>每日擂台</button>
+          <button class="nav-item" data-view="showcase" type="button"><span class="nav-icon">▤</span>提交展示</button>
+          <button class="nav-item" data-view="members" type="button"><span class="nav-icon">♧</span>成员列表</button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <button class="nav-item" id="adminNavItem" hidden data-view="admin" type="button"><span class="nav-icon">⚙</span>管理工作台 <span class="count-badge">12</span></button>
+          <div class="sidebar-note"><span class="status-dot"></span>系统运行正常</div>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div class="breadcrumbs"><span>工作台</span><span class="slash">/</span><strong id="pageTitle">总览</strong></div>
+          <div class="topbar-actions">
+            <button class="icon-button" type="button" title="消息" aria-label="消息"><span class="notification-dot"></span>◌</button>
+            <div class="profile-chip"><span class="profile-avatar">林</span><span><strong>林同学</strong><small>团队管理员</small></span><button class="logout-button" id="logoutButton" type="button">退出登录</button></div>
+          </div>
+        </header>
+
+        <div class="page-view active" id="dashboardView">
+          <section class="atlas-hero">
+            <div class="atlas-copy">
+              <section class="welcome-row">
+                <div>
+                  <p class="kicker">2026 秋季学期 · 第 06 周</p>
+                  <h1>把这一周，写成你的进步。</h1>
+                  <p class="muted">本周截止时间：周日 00:00 <span class="dot-separator">·</span> 距离截止还有 <strong>2 天 08:42:16</strong></p>
+                </div>
+                <button class="primary-button" id="openSubmission" type="button"><span>＋</span>提交本周记录</button>
+              </section>
+              <div class="atlas-quickline"><span><i class="quick-dot teal"></i><span id="quickSubmissions">— 次提交</span></span><span><i class="quick-dot coral"></i><span id="quickPending">— 项待审核</span></span><span><i class="quick-dot blue"></i><span id="quickRank">排名 —</span></span></div>
+            </div>
+            <div class="atlas-stage" aria-label="本周训练轨迹">
+              <div class="stage-sheen"></div>
+              <div class="stage-header"><span>TRAINING ATLAS</span><span id="stageWeek">WEEK -- / --</span></div>
+              <div class="stage-title"><span id="stageScore">07</span><span>/10</span></div>
+              <p class="stage-caption">本周积分<br><strong id="stageScoreCaption">还差 3 分达标</strong></p>
+              <div class="stage-grid" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="stage-path" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+              <div class="stage-float stage-float-a"><span class="float-label">当前焦点</span><strong id="stageFocus">完成第 3 次有效提交</strong><small id="stageFocusMeta">通过截图 · 写题逻辑 · Blog</small></div>
+              <div class="stage-float stage-float-b"><span class="float-label">连续达标</span><strong id="stageStreak">— 周</strong><small>保持你的训练节拍</small></div>
+              <div class="stage-orbit orbit-a"></div><div class="stage-orbit orbit-b"></div>
+            </div>
+          </section>
+
+          <section class="pulse-panel" aria-label="训练周次节拍">
+            <div class="pulse-intro">
+              <div class="pulse-orbit" aria-hidden="true"><span></span><span></span><span></span></div>
+              <div>
+                <p class="section-label">WEEKLY PULSE</p>
+                <h2>你的训练节拍</h2>
+                <p class="pulse-copy">每一次提交，都会让这一周更接近完成。</p>
+              </div>
+            </div>
+            <div class="pulse-track" role="tablist" aria-label="选择训练周次">
+              <button class="pulse-week is-complete" data-pulse-week="4" type="button" role="tab" aria-selected="false"><span>04</span><small>已完成</small></button>
+              <button class="pulse-week is-complete" data-pulse-week="5" type="button" role="tab" aria-selected="false"><span>05</span><small>已完成</small></button>
+              <button class="pulse-week is-current" data-pulse-week="6" type="button" role="tab" aria-selected="true"><span>06</span><small>进行中</small></button>
+              <button class="pulse-week is-next" data-pulse-week="7" type="button" role="tab" aria-selected="false"><span>07</span><small>即将开始</small></button>
+              <i class="pulse-line" aria-hidden="true"></i>
+            </div>
+            <div class="pulse-detail" id="pulseDetail">
+              <div><span class="pulse-detail-label">本周焦点</span><strong id="pulseFocus">完成第 3 次有效提交</strong></div>
+              <div><span class="pulse-detail-label">截止状态</span><strong class="pulse-warning" id="pulseStatus">还剩 2 天</strong></div>
+              <button class="pulse-jump" id="pulseJump" type="button">打开提交入口 <span>↗</span></button>
+            </div>
+          </section>
+
+          <section class="metric-grid" aria-label="本周进度">
+            <article class="metric-card featured">
+              <div class="metric-top"><span>本周积分</span><span class="metric-icon">✦</span></div>
+              <div class="metric-value">7 <small>/ 10 分</small></div>
+              <div class="progress-track"><span style="width:70%"></span></div>
+              <div class="metric-foot"><span>还差 3 分达标</span><span class="positive">+2.4%</span></div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top"><span>有效提交</span><span class="metric-icon neutral">□</span></div>
+              <div class="metric-value">3 <small>/ 4 次</small></div>
+              <div class="submission-dots" aria-label="提交进度"><i class="done"></i><i class="done"></i><i class="done"></i><i></i></div>
+              <div class="metric-foot"><span>再完成 1 次即可</span><span class="muted">本周要求</span></div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top"><span>当前排名</span><span class="metric-icon gold">↗</span></div>
+              <div class="metric-value" id="rankValue">— <small>/ — 人</small></div>
+              <div class="rank-change"><span class="rank-pill" id="rankChange">—</span><span id="rankChangeLabel">排名变化</span></div>
+              <div class="metric-foot"><span id="rankGap">—</span><span class="muted">本周榜</span></div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top"><span>连续达标</span><span class="metric-icon violet">◒</span></div>
+              <div class="metric-value" id="streakValue">— <small>周</small></div>
+              <div class="week-strip"><i></i><i></i><i></i><i></i><i></i><i class="current"></i></div>
+              <div class="metric-foot"><span>保持你的连胜记录</span><span class="muted">学期进度</span></div>
+            </article>
+          </section>
+
+          <section class="content-grid">
+            <article class="panel submissions-panel">
+              <div class="panel-heading"><div><p class="section-label">RECENT ACTIVITY</p><h2>最近提交</h2></div><button class="text-button" data-view-target="submissions" type="button">查看全部 <span>→</span></button></div>
+              <div class="submission-list" id="submissionList">
+                <div class="submission-row"><div class="status-marker approved">✓</div><div class="submission-info"><strong>截图 · 第 3 次提交</strong><span>今天 10:24 · 通过审核</span></div><span class="score">+1 <small>分</small></span><span class="status-tag approved">已通过</span></div>
+                <div class="submission-row"><div class="status-marker pending">◷</div><div class="submission-info"><strong>写题逻辑 · 第 3 次提交</strong><span>今天 10:24 · 等待管理员审核</span></div><span class="score">+1 <small>分</small></span><span class="status-tag pending">待审核</span></div>
+                <div class="submission-row"><div class="status-marker approved">✓</div><div class="submission-info"><strong>Blog · 第 2 次提交</strong><span>周四 22:08 · 通过审核</span></div><span class="score">+1 <small>分</small></span><span class="status-tag approved">已通过</span></div>
+                <div class="submission-row"><div class="status-marker approved">✓</div><div class="submission-info"><strong>截图 · 第 2 次提交</strong><span>周三 18:16 · 通过审核</span></div><span class="score">+1 <small>分</small></span><span class="status-tag approved">已通过</span></div>
+              </div>
+            </article>
+
+            <article class="panel leaderboard-panel">
+              <div class="panel-heading"><div><p class="section-label">TEAM RANKING</p><h2>团队排行榜</h2></div><button class="text-button" data-view-target="leaderboard" type="button">完整榜单 <span>→</span></button></div>
+              <div class="segmented segmented--ranking" role="tablist" aria-label="排行榜范围"><button class="segment active" data-ranking="week" type="button">本周</button><button class="segment" data-ranking="term" type="button">本学期</button></div>
+              <div class="leaderboard-list" id="leaderboardList"></div>
+              <div class="your-rank"><span>你的排名</span><strong id="yourRankValue">—</strong><span class="rank-up" id="yourRankChange">排名加载中</span></div>
+            </article>
+          </section>
+
+          <section class="arena-banner">
+            <div class="arena-copy"><span class="arena-eyebrow">DAILY ARENA · 今日擂台</span><h2>今天的题，等你来破。</h2><p>管理员尚未发布今日擂台题目，发布后将在这里开放挑战。</p></div>
+            <div class="arena-state"><span class="closed-icon">—</span><span>今日擂台暂未开放</span></div>
+          </section>
+        </div>
+
+        <div class="page-view" id="submissionsView"><div class="page-heading"><div><p class="kicker">提交记录</p><h1>我的提交</h1><p class="muted">按周查看你的提交材料与审核状态。</p></div><button class="primary-button" id="openSubmissionSecondary" type="button"><span>＋</span>提交本周记录</button></div><div class="panel empty-state"><div class="empty-icon">□</div><h2>这里会留下你的训练轨迹</h2><p>本周已有 3 次有效提交，继续保持。</p><button class="secondary-button" id="emptyAction" type="button">继续提交</button></div></div>
+        <div class="page-view" id="leaderboardView"><div class="page-heading"><div><p class="kicker">团队数据</p><h1>排行榜</h1><p class="muted">只对当前团队成员开放。</p></div><div class="date-chip" id="leaderboardWeekLabel">当前周次 · 当前学期</div></div><div class="panel full-leaderboard"><div class="segmented segmented--ranking large" role="tablist" aria-label="排行榜范围"><button class="segment active" data-ranking="week" type="button">本周榜</button><button class="segment" data-ranking="term" type="button">本学期榜</button></div><div class="leaderboard-list" id="leaderboardListFull"></div></div></div>
+        <div class="page-view" id="arenaView"><div class="page-heading"><div><p class="kicker">每日互动</p><h1>每日擂台</h1><p class="muted">管理员发布题目后，成员可在这里开始挑战。</p></div></div><div class="arena-empty panel"><div class="empty-icon star">✦</div><h2>今日擂台暂未开放</h2><p>管理员没有指定当期擂台时，挑战入口会保持关闭。</p></div><div class="arena-history panel"><div class="panel-heading"><div><p class="section-label">HALL OF FAME</p><h2>擂主墙</h2></div></div><div class="hall-items"><div><span>昨日擂主</span><strong>—</strong><small>暂无记录</small></div><div><span>本周擂台大王</span><strong>—</strong><small>等待本周首场擂台</small></div></div></div></div>
+        <div class="page-view" id="adminView"><div class="page-heading"><div><p class="kicker">团队管理</p><h1>审核工作台</h1><p class="muted">集中处理成员提交，审批后积分会自动更新。</p></div><button class="primary-button" id="approveAllTop" type="button"><span>✓</span>一键审批全部</button></div><div class="admin-grid"><article class="panel queue-panel"><div class="panel-heading"><div><p class="section-label">REVIEW QUEUE</p><h2>待审核队列 <span class="inline-count">12</span></h2></div><div class="filter-chip">本周⌄</div></div><div class="queue-toolbar"><label class="checkbox-wrap"><input type="checkbox" id="selectAll" /> <span>全选</span></label><button class="secondary-button small" id="approveSelected" type="button">✓ 一键通过</button><span class="toolbar-note">已选 <strong id="selectedCount">0</strong> 条</span></div><div class="review-list" id="reviewList"><div class="review-row"><input type="checkbox" /><span class="review-avatar">周</span><span class="review-content"><strong>周同学 · 写题逻辑</strong><small>今天 11:06 · 第 3 次提交</small></span><span class="visibility-tag">团队可见</span><button class="review-view" type="button" data-review="zhou">查看内容</button><span class="status-tag pending">待审核</span></div><div class="review-row"><input type="checkbox" /><span class="review-avatar blue">陈</span><span class="review-content"><strong>陈同学 · Blog</strong><small>今天 10:48 · 第 4 次提交</small></span><span class="visibility-tag private">不公开</span><button class="review-view" type="button" data-review="chen">查看内容</button><span class="status-tag pending">待审核</span></div><div class="review-row"><input type="checkbox" /><span class="review-avatar purple">赵</span><span class="review-content"><strong>赵同学 · 通过截图</strong><small>今天 09:32 · 第 2 次提交</small></span><span class="visibility-tag">团队可见</span><button class="review-view" type="button" data-review="zhao">查看内容</button><span class="status-tag pending">待审核</span></div></div></article><article class="panel admin-stat-panel"><p class="section-label">THIS WEEK</p><h2>本周概览</h2><div class="admin-stat"><span>待审核材料</span><strong>12</strong></div><div class="admin-stat"><span>已完成审核</span><strong>86</strong></div><div class="admin-stat"><span>团队达标率</span><strong>73<small>%</small></strong></div><div class="mini-callout"><span>↗</span><div><strong>审核效率提升 24%</strong><p>相比上周同期</p></div></div></article></div><article class="panel display-settings"><div><p class="section-label">CONTENT VISIBILITY</p><h2>提交内容展示</h2><p>控制团队成员是否可以在「提交展示」中查看已通过的截图、写题逻辑和 Blog。</p></div><div class="visibility-options" role="group" aria-label="提交内容展示权限"><button class="visibility-option active" data-global-visibility="team" type="button"><span>◉</span><strong>所有团队成员可查看</strong><small>适合鼓励交流和互相参考</small></button><button class="visibility-option" data-global-visibility="admin" type="button"><span>○</span><strong>仅管理员可查看</strong><small>成员仍可查看自己的提交状态</small></button></div><div class="settings-saved" id="settingsSaved">当前设置：所有团队成员可查看</div></article></div>
+
+        <div class="page-view" id="showcaseView"><div class="page-heading"><div><p class="kicker">TEAM LIBRARY</p><h1>提交展示</h1><p class="muted">浏览团队成员主动公开的训练记录与思路。</p></div><div class="showcase-note"><span class="status-dot"></span>仅当前团队成员可见</div></div><div class="showcase-toolbar"><div class="segmented segmented--showcase" role="tablist" aria-label="提交内容筛选"><button class="segment active" data-showcase-filter="all" type="button">全部</button><button class="segment" data-showcase-filter="logic" type="button">写题逻辑</button><button class="segment" data-showcase-filter="blog" type="button">Blog</button></div><div class="filter-chip">第 06 周⌄</div></div><div class="showcase-grid" id="showcaseGrid"><article class="showcase-card" data-kind="logic"><div class="showcase-card-top"><div class="member-line"><span class="leader-avatar">王</span><div><strong>王同学</strong><small>今天 09:42 · 第 4 次提交</small></div></div><span class="visibility-tag">团队可见</span></div><div class="proof-preview"><button class="proof-image-button" type="button" data-review="demo-wang" aria-label="查看王同学的通过截图"><img src="demo-proof-greedy.svg" alt="王同学的通过截图" /></button><div><strong>通过截图已审核</strong><small>截图材料 · +1 分</small></div></div><div class="shared-content"><span class="content-type">写题逻辑</span><p>先将数组按右端点排序，再用贪心策略选择当前能覆盖最多区间的点，时间复杂度为 O(n log n)。</p></div></article><article class="showcase-card" data-kind="blog"><div class="showcase-card-top"><div class="member-line"><span class="leader-avatar blue">李</span><div><strong>李同学</strong><small>昨天 22:08 · 第 3 次提交</small></div></div><span class="visibility-tag">团队可见</span></div><div class="proof-preview"><button class="proof-image-button" type="button" data-review="demo-li" aria-label="查看李同学的通过截图"><img src="demo-proof-twopointer.svg" alt="李同学的通过截图" /></button><div><strong>通过截图已审核</strong><small>截图材料 · +1 分</small></div></div><div class="shared-content"><span class="content-type">Blog 题解</span><p>从双指针的边界处理开始，记录一次完整的思路推导与易错点。</p><a href="#" class="blog-link">阅读题解 →</a></div></article><article class="showcase-card" data-kind="logic"><div class="showcase-card-top"><div class="member-line"><span class="leader-avatar purple">陈</span><div><strong>陈同学</strong><small>周五 18:16 · 第 2 次提交</small></div></div><span class="visibility-tag">团队可见</span></div><div class="proof-preview"><button class="proof-image-button" type="button" data-review="demo-chen" aria-label="查看陈同学的通过截图"><img src="demo-proof-dp.svg" alt="陈同学的通过截图" /></button><div><strong>通过截图已审核</strong><small>截图材料 · +1 分</small></div></div><div class="shared-content"><span class="content-type">写题逻辑</span><p>用状态压缩保存已经访问的节点集合，转移时只扩展一个新节点，空间复杂度 O(2ⁿ)。</p></div></article></div></div>
+        <div class="page-view" id="membersView"><div class="page-heading"><div><p class="kicker">TEAM DIRECTORY</p><h1>成员列表</h1><p class="muted">查看团队成员的训练进度，点击成员可查看指定周次的历史提交。</p></div><div class="date-chip">30 位成员</div></div><div class="member-toolbar"><div class="search-box"><span>⌕</span><input id="memberSearch" type="search" placeholder="搜索成员姓名" /></div><div class="filter-chip">全部成员⌄</div></div><div class="members-grid" id="membersGrid"><article class="member-card" data-member="林同学"><div class="member-card-head"><span class="member-avatar dark">林</span><div><strong>林同学</strong><small>团队管理员 · 连续达标 5 周</small></div><span class="member-status">活跃</span></div><div class="member-card-stats"><div><span>本周积分</span><strong>7 <small>/ 10</small></strong></div><div><span>本周提交</span><strong>3 <small>次</small></strong></div><div><span>学期积分</span><strong>72</strong></div></div><button class="member-history-button" type="button" data-member-history="lin">查看历史提交 <span>→</span></button></article><article class="member-card" data-member="王同学"><div class="member-card-head"><span class="member-avatar">王</span><div><strong>王同学</strong><small>连续达标 6 周 · 本周排名 1</small></div><span class="member-status">活跃</span></div><div class="member-card-stats"><div><span>本周积分</span><strong>12 <small>/ 10</small></strong></div><div><span>本周提交</span><strong>5 <small>次</small></strong></div><div><span>学期积分</span><strong>79</strong></div></div><button class="member-history-button" type="button" data-member-history="wang">查看历史提交 <span>→</span></button></article><article class="member-card" data-member="李同学"><div class="member-card-head"><span class="member-avatar blue">李</span><div><strong>李同学</strong><small>连续达标 4 周 · 本周排名 2</small></div><span class="member-status">活跃</span></div><div class="member-card-stats"><div><span>本周积分</span><strong>10 <small>/ 10</small></strong></div><div><span>本周提交</span><strong>4 <small>次</small></strong></div><div><span>学期积分</span><strong>86</strong></div></div><button class="member-history-button" type="button" data-member-history="li">查看历史提交 <span>→</span></button></article><article class="member-card" data-member="陈同学"><div class="member-card-head"><span class="member-avatar purple">陈</span><div><strong>陈同学</strong><small>连续达标 3 周 · 本周排名 4</small></div><span class="member-status offline">本周未达标</span></div><div class="member-card-stats"><div><span>本周积分</span><strong>8 <small>/ 10</small></strong></div><div><span>本周提交</span><strong>3 <small>次</small></strong></div><div><span>学期积分</span><strong>76</strong></div></div><button class="member-history-button" type="button" data-member-history="chen">查看历史提交 <span>→</span></button></article></div></div>
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="submissionModal" aria-hidden="true"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-header"><div><p class="section-label">NEW SUBMISSION</p><h2 id="modalTitle">提交本周记录</h2></div><button class="close-button" id="closeSubmission" type="button" aria-label="关闭">×</button></div><form id="submissionForm"><div class="form-note"><span>第 06 周</span><span>截止 周日 00:00</span></div><label class="field-label">通过截图 <span>必填 · 1 分</span><div class="upload-box"><input id="proofImage" name="proof" type="file" accept="image/png,image/jpeg,image/webp" required aria-describedby="proofHint" /><span class="upload-icon">↑</span><strong>点击上传截图</strong><small id="proofHint">支持 PNG、JPG、WebP，单张不超过 5MB</small></div></label><label class="field-label">写题逻辑 <span>可选 · 1 分</span><textarea id="logicText" name="logic" rows="4" placeholder="写下你的思路、关键算法或复杂度分析"></textarea></label><label class="field-label">Blog <span>可选 · 1 分</span><input id="blogUrl" name="blog" type="url" placeholder="https://" /></label><div class="modal-footer"><span class="muted">提交后将进入管理员审核</span><button class="primary-button" type="submit">提交审核 <span>→</span></button></div></form></section></div>
+    <div class="modal-backdrop" id="reviewModal" aria-hidden="true"><section class="modal review-modal" role="dialog" aria-modal="true" aria-labelledby="reviewModalTitle"><div class="modal-header"><div><p class="section-label">SUBMISSION REVIEW</p><h2 id="reviewModalTitle">查看提交内容</h2></div><button class="close-button" id="closeReview" type="button" aria-label="关闭">×</button></div><div class="review-author"><span class="review-avatar" id="reviewAvatar">周</span><div><strong id="reviewMember">周同学</strong><small id="reviewTime">今天 11:06 · 第 3 次提交</small></div><span class="status-tag pending">待审核</span></div><div class="review-content-block"><div class="review-block-head"><strong>通过截图</strong><span class="required-chip">必填</span></div><div class="screenshot-placeholder"><img id="reviewImage" alt="通过截图" /><span class="screenshot-icon" id="reviewImageFallback">▧</span><div><strong id="reviewFileName">submission-proof.png</strong><small id="reviewFileMeta">已上传 · 1.8 MB</small></div><button class="text-button" id="zoomReviewImage" type="button">放大查看</button></div></div><div class="review-content-block"><div class="review-block-head"><strong>写题逻辑</strong><span class="score-chip">+1 分</span></div><p class="review-quote" id="reviewLogic">使用排序和双指针，先固定左端点，再移动右端点寻找满足条件的最优解。</p></div><div class="review-content-block"><div class="review-block-head"><strong>Blog</strong><span class="empty-chip">未提交</span></div><p class="review-empty">成员没有提交 Blog 题解。</p></div><div class="visibility-setting"><div><strong>展示权限</strong><small>公开后，团队成员可以在「提交展示」中看到这条记录。</small></div><select id="visibilitySelect"><option value="team">团队成员可见</option><option value="private">不公开</option></select></div><div class="modal-footer review-actions"><button class="secondary-button" id="rejectReview" type="button">拒绝并备注</button><button class="primary-button" id="approveReview" type="button">✓ 通过审核</button></div></section></div>
+    <div class="modal-backdrop" id="memberHistoryModal" aria-hidden="true"><section class="modal history-modal" role="dialog" aria-modal="true" aria-labelledby="historyTitle"><div class="modal-header"><div><p class="section-label">MEMBER HISTORY</p><h2 id="historyTitle">成员历史提交</h2></div><button class="close-button" id="closeHistory" type="button" aria-label="关闭">×</button></div><div class="history-author"><span class="member-avatar dark" id="historyAvatar">林</span><div><strong id="historyMember">林同学</strong><small>本团队 · 学期累计 72 分</small></div><select id="historyWeek"><option value="6">第 06 周</option><option value="5">第 05 周</option><option value="4">第 04 周</option><option value="3">第 03 周</option></select></div><div class="history-summary"><div><span>本周积分</span><strong id="historyScore">7 分</strong></div><div><span>有效提交</span><strong id="historyCount">3 次</strong></div><div><span>达标状态</span><strong class="positive">已达标</strong></div></div><div class="history-list" id="historyList"><div class="history-item"><div class="history-item-icon approved">✓</div><div><strong>通过截图</strong><small>今天 10:24 · 已通过</small></div><span>+1 分</span><button class="history-view" type="button" data-review="zhao">查看内容</button></div><div class="history-item"><div class="history-item-icon pending">◷</div><div><strong>写题逻辑</strong><small>今天 10:24 · 待审核</small></div><span class="pending-text">待审核</span><button class="history-view" type="button" data-review="zhou">查看内容</button></div><div class="history-item"><div class="history-item-icon approved">✓</div><div><strong>Blog</strong><small>周四 22:08 · 已通过</small></div><span>+1 分</span><button class="history-view" type="button" data-review="chen">查看内容</button></div></div><div class="history-note"><span>i</span>展示内容由团队管理员设置，未公开材料仅管理员可见。</div></section></div>
+    <div class="feedback-layer" id="feedbackLayer" aria-live="polite" aria-hidden="true">
+      <div class="feedback-card feedback-card--submission" id="submissionFeedback" role="status">
+        <div class="feedback-orbit feedback-orbit--outer"></div><div class="feedback-orbit feedback-orbit--inner"></div>
+        <div class="feedback-sparks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="feedback-check" aria-hidden="true"><span></span></div>
+        <div class="feedback-copy"><span class="feedback-kicker">PULSE LOGGED</span><strong>提交成功</strong><small>已进入审核队列，训练节拍继续保持。</small></div>
+        <div class="feedback-track" aria-hidden="true"><span></span><i></i><i></i><i></i></div>
+      </div>
+    </div>
+    <div class="toast" id="toast" role="status"><span>✓</span><span id="toastText">提交成功，已进入审核队列</span></div>
+    <script src="api.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
