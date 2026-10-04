@@ -32,7 +32,6 @@ This project was born out of the need to make it easier to compile statistics on
 
 ![提交展示](docs/screenshots/showcase.png)
 
-> 其他页面截图可继续补充到 `docs/screenshots/`，并在本节追加对应的 Markdown 图片引用。
 
 ## 本地启动
 
