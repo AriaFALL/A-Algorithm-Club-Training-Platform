@@ -194,3 +194,21 @@ class ClubApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         submission.refresh_from_db()
         self.assertEqual(submission.visibility, Submission.VISIBILITY_PRIVATE)
+
+    def test_reject_action_persists_rejected_parts(self):
+        week = self.semester.weeks.first()
+        submission = Submission.objects.create(team=self.team, member=self.member, semester=self.semester, week=week)
+        part = SubmissionPart.objects.create(
+            submission=submission,
+            kind=SubmissionPart.PROOF,
+            upload=SimpleUploadedFile("proof.png", b"proof", content_type="image/png"),
+        )
+        response = self.client.post(
+            "/api/admin/submissions/bulk-approve",
+            data=json.dumps({"submission_ids": [submission.id], "action": "reject", "note": "请补充清晰截图"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        part.refresh_from_db()
+        self.assertEqual(part.status, SubmissionPart.REJECTED)
+        self.assertEqual(part.review_note, "请补充清晰截图")

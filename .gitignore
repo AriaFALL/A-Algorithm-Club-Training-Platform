@@ -3,6 +3,11 @@
 .env.*
 !.env.example
 
+# Python virtual environments
+.venv/
+venv/
+.pip-tmp/
+
 # Runtime data and generated files
 backups/
 media/
