@@ -94,6 +94,8 @@ function setupDemoPreview() {
   ]}]);
   const count = $('#membersView .date-chip');
   if (count) count.textContent = '30 位成员';
+  if ($('#lastWeekIncompleteTitle')) $('#lastWeekIncompleteTitle').textContent = '第 05 周未达标成员';
+  if ($('#lastWeekIncompleteList')) $('#lastWeekIncompleteList').innerHTML = '<div class="last-week-row"><strong>陈同学</strong><span>8 分 · 3 次有效提交</span><small>要求 10 分 + 4 次</small></div>';
   reviewData['demo-wang'] = {name:'王同学', initial:'王', time:'今天 09:42 · 第 4 次提交', logic:'先将数组按右端点排序，再用贪心策略选择当前能覆盖最多区间的点，时间复杂度为 O(n log n)。', visibility:'team', upload:'demo-proof-greedy.svg', fileName:'区间覆盖 · 通过截图', status:'approved'};
   reviewData['demo-li'] = {name:'李同学', initial:'李', time:'昨天 22:08 · 第 3 次提交', logic:'从双指针的边界处理开始，记录一次完整的思路推导与易错点。', visibility:'team', upload:'demo-proof-twopointer.svg', fileName:'双指针 · 通过截图', status:'approved'};
   reviewData['demo-chen'] = {name:'陈同学', initial:'陈', time:'周五 18:16 · 第 2 次提交', logic:'用状态压缩保存已经访问的节点集合，转移时只扩展一个新节点，空间复杂度 O(2ⁿ)。', visibility:'team', upload:'demo-proof-dp.svg', fileName:'状态压缩 · 通过截图', status:'approved'};
@@ -517,6 +519,18 @@ async function loadAdminQueue({silent = false} = {}) {
     if (adminStats[2]) adminStats[2].innerHTML = `${payload.stats?.qualificationRate ?? 0}<small>%</small>`;
     $$('.inline-count').forEach((element) => { element.textContent = String(pendingCount); });
     $$('.count-badge').forEach((element) => { element.textContent = String(pendingCount); });
+    const lastWeekTitle = $('#lastWeekIncompleteTitle');
+    const lastWeekList = $('#lastWeekIncompleteList');
+    const lastWeekNumber = payload.stats?.lastWeekNumber;
+    const incompleteMembers = payload.stats?.lastWeekIncompleteMembers || [];
+    if (lastWeekTitle) lastWeekTitle.textContent = lastWeekNumber ? `第 ${lastWeekNumber} 周未达标成员` : '上周未达标成员';
+    if (lastWeekList) {
+      lastWeekList.innerHTML = !lastWeekNumber
+        ? '<div class="queue-empty">暂无上一周数据</div>'
+        : incompleteMembers.length
+          ? incompleteMembers.map((member) => `<div class="last-week-row"><strong>${escapeHtml(member.name)}</strong><span>${member.score} 分 · ${member.submissions} 次有效提交</span><small>要求 ${member.requiredScore} 分 ${member.requiredBoth ? '+' : '或'} ${member.requiredSubmissions} 次</small></div>`).join('')
+          : '<div class="queue-empty">上一周全员已完成每周任务</div>';
+    }
     const firstStat = $('.admin-stat strong');
     if (firstStat) firstStat.textContent = String(pendingCount);
     if (!pending.length) {
@@ -789,6 +803,12 @@ $('#approveAllTop').addEventListener('click', () => approveSelected(true));
 
 function clearStaticPreview() {
   const loading = '<div class="queue-empty">正在加载真实数据…</div>';
+  rankingData.week = [];
+  rankingData.term = [];
+  ['#leaderboardList', '#leaderboardListFull'].forEach((selector) => {
+    const element = $(selector);
+    if (element) { element.innerHTML = loading; element.setAttribute('aria-live', 'polite'); }
+  });
   ['#submissionList', '#showcaseGrid', '#membersGrid', '#reviewList', '#historyList', '#submissionsView .empty-state', '#arenaView .arena-empty'].forEach((selector) => {
     const element = $(selector);
     if (element) { element.innerHTML = loading; element.setAttribute('aria-live', 'polite'); }
@@ -830,6 +850,15 @@ function clearStaticPreview() {
   $$('.inline-count').forEach((element) => { element.textContent = '—'; });
   $$('.count-badge').forEach((element) => { element.textContent = '—'; });
   $$('.admin-stat strong').forEach((element) => { element.textContent = '—'; });
+  if ($('#lastWeekIncompleteTitle')) $('#lastWeekIncompleteTitle').textContent = '上周未达标成员';
+  if ($('#lastWeekIncompleteList')) $('#lastWeekIncompleteList').innerHTML = '<div class="queue-empty">等待真实数据…</div>';
+  const formNote = $('.form-note');
+  if (formNote) {
+    const weekLabel = formNote.querySelector('span:first-child');
+    const deadlineLabel = formNote.querySelector('span:last-child');
+    if (weekLabel) weekLabel.textContent = '当前周次加载中…';
+    if (deadlineLabel) deadlineLabel.textContent = '截止时间加载中…';
+  }
   ['#quickSubmissions', '#quickPending', '#quickRank', '#stageWeek', '#stageStreak', '#rankValue', '#rankChange', '#rankGap', '#streakValue', '#yourRankValue', '#yourRankChange'].forEach((selector) => { const element = $(selector); if (element) element.textContent = '—'; });
   if ($('#teamName')) $('#teamName').textContent = '正在加载…';
   const profile = $('.profile-chip');

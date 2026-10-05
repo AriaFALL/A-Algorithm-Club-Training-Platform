@@ -92,12 +92,41 @@ def member_week_submissions(member, week):
     ).distinct().count()
 
 
-def member_week_qualified(member, week):
-    score = member_week_score(member, week)
-    submissions = member_week_submissions(member, week)
+def week_progress_qualified(score, submissions, week):
     if week.effective_require_both:
         return submissions >= week.effective_min_submissions and score >= week.effective_min_score
     return submissions >= week.effective_min_submissions or score >= week.effective_min_score
+
+
+def member_week_qualified(member, week):
+    return week_progress_qualified(member_week_score(member, week), member_week_submissions(member, week), week)
+
+
+def member_week_progress(members, week):
+    """Return approved score and proof counts with two aggregate queries."""
+    if not members or not week:
+        return {}, {}
+    member_ids = [member.id for member in members]
+    scores = {
+        row["submission__member_id"]: row["score"] or 0
+        for row in SubmissionPart.objects.filter(
+            submission__week=week,
+            submission__is_valid=True,
+            submission__member_id__in=member_ids,
+            status=SubmissionPart.APPROVED,
+        ).values("submission__member_id").annotate(score=Sum("points_awarded"))
+    }
+    submissions = {
+        row["member_id"]: row["submissions"]
+        for row in Submission.objects.filter(
+            week=week,
+            is_valid=True,
+            member_id__in=member_ids,
+            parts__kind=SubmissionPart.PROOF,
+            parts__status=SubmissionPart.APPROVED,
+        ).values("member_id").annotate(submissions=Count("id", distinct=True))
+    }
+    return scores, submissions
 
 
 def leaderboard_rows_for(team, semester, week=None):
@@ -417,9 +446,38 @@ def submissions(request):
             week = active_week(semester) if semester else None
             pending = SubmissionPart.objects.filter(submission__team=membership.team, status=SubmissionPart.PENDING).count()
             reviewed = SubmissionPart.objects.filter(submission__team=membership.team, status__in=[SubmissionPart.APPROVED, SubmissionPart.REJECTED]).count()
-            member_count = membership.team.memberships.filter(is_active=True).count()
-            qualified = sum(1 for member in membership.team.memberships.filter(is_active=True) if week and member_week_qualified(member, week))
-            payload["stats"] = {"pendingParts": pending, "reviewedParts": reviewed, "qualificationRate": round(qualified / member_count * 100) if member_count else 0}
+            members = list(membership.team.memberships.filter(is_active=True))
+            member_count = len(members)
+            current_scores, current_submissions = member_week_progress(members, week)
+            qualified = sum(
+                1
+                for member in members
+                if week and week_progress_qualified(current_scores.get(member.id, 0), current_submissions.get(member.id, 0), week)
+            )
+            previous_week = semester.weeks.filter(ends_at__lte=timezone.now()).order_by("-ends_at").first() if semester else None
+            incomplete_members = []
+            if previous_week:
+                score_by_member, submissions_by_member = member_week_progress(members, previous_week)
+                for member in members:
+                    score = score_by_member.get(member.id, 0)
+                    submissions = submissions_by_member.get(member.id, 0)
+                    if not week_progress_qualified(score, submissions, previous_week):
+                        incomplete_members.append({
+                            "id": member.id,
+                            "name": member.display_name,
+                            "score": score,
+                            "submissions": submissions,
+                            "requiredScore": previous_week.effective_min_score,
+                            "requiredSubmissions": previous_week.effective_min_submissions,
+                            "requiredBoth": previous_week.effective_require_both,
+                        })
+            payload["stats"] = {
+                "pendingParts": pending,
+                "reviewedParts": reviewed,
+                "qualificationRate": round(qualified / member_count * 100) if member_count else 0,
+                "lastWeekNumber": previous_week.number if previous_week else None,
+                "lastWeekIncompleteMembers": incomplete_members,
+            }
         return JsonResponse(payload)
     if request.method != "POST":
         return api_error("仅支持 GET 或 POST", 405)

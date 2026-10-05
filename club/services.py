@@ -58,8 +58,12 @@ def approve_submission_parts(actor, part_ids=None, submission_ids=None, note="")
 def build_weeks(semester):
     existing = {week.number: week for week in semester.weeks.all()}
     current = semester.starts_on
-    while current.weekday() != 6:
+    # A training week runs Monday 00:00 through the following Monday 00:00.
+    # This makes the submission deadline Sunday 24:00 in the configured
+    # timezone, regardless of the semester's calendar start date.
+    while current.weekday() != 0:
         current -= timedelta(days=1)
+    first_week_start = current
     number = 1
     while current <= semester.ends_on:
         start = timezone.make_aware(datetime.combine(current, time.min))
@@ -68,6 +72,16 @@ def build_weeks(semester):
             existing[number] = Week.objects.create(semester=semester, number=number, starts_at=start, ends_at=end)
         current += timedelta(days=7)
         number += 1
+    # Legacy data can contain a trailing week beyond the semester end. Keep
+    # its records, but normalize its boundary to the same Monday based rule.
+    for week in existing.values():
+        start_date = first_week_start + timedelta(days=week.number - 1)
+        start = timezone.make_aware(datetime.combine(start_date, time.min))
+        end = start + timedelta(days=7)
+        if week.starts_at != start or week.ends_at != end:
+            Week.objects.filter(pk=week.pk).update(starts_at=start, ends_at=end)
+            week.starts_at = start
+            week.ends_at = end
     return list(sorted(existing.values(), key=lambda week: week.number))
 
 

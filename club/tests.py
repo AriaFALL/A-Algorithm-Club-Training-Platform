@@ -136,6 +136,53 @@ class ClubApiTests(TestCase):
         self.assertIn("rank", payload["stats"])
         self.assertIn("pulse", payload)
 
+    def test_weeks_start_on_monday_and_end_at_next_monday_midnight(self):
+        weeks = list(self.semester.weeks.order_by("number"))
+        self.assertGreaterEqual(len(weeks), 2)
+        for week in weeks:
+            self.assertEqual(timezone.localtime(week.starts_at).weekday(), 0)
+            self.assertEqual(week.ends_at - week.starts_at, timedelta(days=7))
+            self.assertEqual(timezone.localtime(week.ends_at).weekday(), 0)
+
+    def test_build_weeks_repairs_legacy_sunday_boundaries(self):
+        week = self.semester.weeks.order_by("number").first()
+        legacy_start = week.starts_at - timedelta(days=1)
+        week.starts_at = legacy_start
+        week.ends_at = legacy_start + timedelta(days=7)
+        week.save(update_fields=["starts_at", "ends_at"])
+        build_weeks(self.semester)
+        week.refresh_from_db()
+        self.assertEqual(timezone.localtime(week.starts_at).weekday(), 0)
+        self.assertEqual(week.ends_at - week.starts_at, timedelta(days=7))
+
+    def test_build_weeks_repairs_legacy_trailing_week(self):
+        trailing = Week.objects.create(
+            semester=self.semester,
+            number=99,
+            starts_at=timezone.make_aware(datetime.combine(date.today(), time.min)),
+            ends_at=timezone.make_aware(datetime.combine(date.today() + timedelta(days=7), time.min)),
+        )
+        build_weeks(self.semester)
+        trailing.refresh_from_db()
+        self.assertEqual(timezone.localtime(trailing.starts_at).weekday(), 0)
+        self.assertEqual(trailing.ends_at - trailing.starts_at, timedelta(days=7))
+
+    def test_admin_stats_list_members_who_missed_previous_week(self):
+        previous_week = self.semester.weeks.order_by("number").first()
+        previous_week.is_closed = True
+        previous_week.save(update_fields=["is_closed"])
+        other_user = User.objects.create_user(username="incomplete", password="password-123")
+        other = TeamMembership.objects.create(user=other_user, team=self.team, display_name="未达标成员")
+        response = self.client.get("/api/submissions")
+        self.assertEqual(response.status_code, 200, response.content)
+        stats = response.json()["stats"]
+        self.assertEqual(stats["lastWeekNumber"], previous_week.number)
+        incomplete = {item["id"]: item for item in stats["lastWeekIncompleteMembers"]}
+        self.assertIn(other.id, incomplete)
+        self.assertEqual(incomplete[other.id]["score"], 0)
+        self.assertEqual(incomplete[other.id]["submissions"], 0)
+        self.assertTrue(incomplete[other.id]["requiredBoth"])
+
     def test_visibility_action_persists_submission_visibility(self):
         week = self.semester.weeks.first()
         submission = Submission.objects.create(team=self.team, member=self.member, semester=self.semester, week=week)
