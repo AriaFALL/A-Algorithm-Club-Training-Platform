@@ -1,4 +1,13 @@
 import json
+import io
+import warnings
+from urllib.parse import quote
+
+from PIL import Image, UnidentifiedImageError
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
+from django.http import HttpResponse
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -16,7 +25,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from functools import wraps
 
 from .models import Arena, ReviewLog, Semester, SemesterMemberTotal, Submission, SubmissionPart, Team, TeamMembership, Week, create_internal_username
-from .services import approve_submission_parts, build_weeks
+from .services import build_weeks, review_submission_parts, normalize_ids, progress_rows, qualified, refresh_totals, week_bounds
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -46,8 +55,9 @@ def api_csrf(request):
 
 def body(request):
     try:
-        return json.loads(request.body or "{}")
-    except json.JSONDecodeError:
+        data = json.loads(request.body or "{}")
+        return data if isinstance(data, dict) else {}
+    except (json.JSONDecodeError, UnicodeDecodeError):
         return {}
 
 
@@ -62,7 +72,7 @@ def membership_for(request, team_id=None):
 
 def active_semester(team):
     today = timezone.localdate()
-    semester = team.semesters.filter(is_active=True, starts_on__lte=today, ends_on__gte=today).first()
+    semester = team.semesters.filter(is_active=True, archived_at__isnull=True, starts_on__lte=today, ends_on__gte=today).first()
     if semester:
         build_weeks(semester)
     return semester
@@ -74,83 +84,33 @@ def active_week(semester):
 
 
 def member_week_score(member, week):
-    return SubmissionPart.objects.filter(
-        submission__member=member,
-        submission__week=week,
-        submission__is_valid=True,
-        status=SubmissionPart.APPROVED,
-    ).aggregate(total=Sum("points_awarded"))["total"] or 0
+    return progress_rows(week.semester, week, [member.id])[0].get(member.id, 0)
 
 
 def member_week_submissions(member, week):
-    return Submission.objects.filter(
-        member=member,
-        week=week,
-        is_valid=True,
-        parts__kind=SubmissionPart.PROOF,
-        parts__status=SubmissionPart.APPROVED,
-    ).distinct().count()
+    return progress_rows(week.semester, week, [member.id])[1].get(member.id, 0)
 
 
 def week_progress_qualified(score, submissions, week):
-    if week.effective_require_both:
-        return submissions >= week.effective_min_submissions and score >= week.effective_min_score
-    return submissions >= week.effective_min_submissions or score >= week.effective_min_score
+    return qualified(score, submissions, week)
 
 
 def member_week_qualified(member, week):
-    return week_progress_qualified(member_week_score(member, week), member_week_submissions(member, week), week)
+    scores, counts = progress_rows(week.semester, week, [member.id])
+    return qualified(scores.get(member.id, 0), counts.get(member.id, 0), week)
 
 
 def member_week_progress(members, week):
-    """Return approved score and proof counts with two aggregate queries."""
-    if not members or not week:
-        return {}, {}
-    member_ids = [member.id for member in members]
-    scores = {
-        row["submission__member_id"]: row["score"] or 0
-        for row in SubmissionPart.objects.filter(
-            submission__week=week,
-            submission__is_valid=True,
-            submission__member_id__in=member_ids,
-            status=SubmissionPart.APPROVED,
-        ).values("submission__member_id").annotate(score=Sum("points_awarded"))
-    }
-    submissions = {
-        row["member_id"]: row["submissions"]
-        for row in Submission.objects.filter(
-            week=week,
-            is_valid=True,
-            member_id__in=member_ids,
-            parts__kind=SubmissionPart.PROOF,
-            parts__status=SubmissionPart.APPROVED,
-        ).values("member_id").annotate(submissions=Count("id", distinct=True))
-    }
-    return scores, submissions
+    return progress_rows(week.semester, week, [member.id for member in members]) if week and members else ({}, {})
 
 
 def leaderboard_rows_for(team, semester, week=None):
-    rows = []
-    for member in team.memberships.filter(is_active=True):
-        parts = SubmissionPart.objects.filter(
-            submission__member=member,
-            submission__semester=semester,
-            submission__is_valid=True,
-            status=SubmissionPart.APPROVED,
-        )
-        if week:
-            parts = parts.filter(submission__week=week)
-        score = parts.aggregate(total=Sum("points_awarded"))["total"] or 0
-        submissions = Submission.objects.filter(
-            member=member,
-            semester=semester,
-            is_valid=True,
-            **({"week": week} if week else {}),
-        ).filter(parts__kind=SubmissionPart.PROOF, parts__status=SubmissionPart.APPROVED).distinct().count()
-        rows.append({"memberId": member.id, "name": member.display_name, "score": score, "submissions": submissions})
-    rows.sort(key=lambda row: (-row["score"], -row["submissions"], row["name"]))
+    scores, counts = progress_rows(semester, week)
+    rows = [{'memberId': member.id, 'name': member.display_name, 'score': scores.get(member.id, 0),
+             'submissions': counts.get(member.id, 0)} for member in team.memberships.filter(is_active=True)]
+    rows.sort(key=lambda row: (-row['score'], -row['submissions'], row['name']))
     for index, row in enumerate(rows, 1):
-        row["rank"] = index
+        row['rank'] = index
     return rows
 
 
@@ -171,7 +131,7 @@ def member_streak(member, semester, through_week):
 def serialize_part(part, include_content=True):
     payload = {"id": part.id, "kind": part.kind, "status": part.status, "points": part.points_awarded, "note": part.review_note}
     if include_content:
-        payload.update({"text": part.text_content, "link": part.link, "upload": part.upload.url if part.upload else None})
+        payload.update({"text": part.text_content, "link": part.link, "upload": f"/api/attachments/{part.id}" if part.upload else None})
     return payload
 
 
@@ -290,6 +250,7 @@ def logout_view(request):
 
 
 @api_login_required
+@transaction.atomic
 def create_team(request):
     if request.method != "POST":
         return api_error("仅支持 POST", 405)
@@ -308,9 +269,20 @@ def create_team(request):
     admin_invite = str(data.get("admin_invite", "")).strip()
     if len(admin_invite) < 6:
         return api_error("请设置至少 6 位管理员邀请码")
+    if len(name) > 80 or len(code) > 32 or len(display_name) > 40:
+        return api_error('团队名称、编号或成员姓名过长')
+    try:
+        numeric = {}
+        for key, default, upper in [('term_days', 120, 3660), ('min_score', 10, 100000), ('screenshot_points', 1, 10000), ('logic_points', 1, 10000), ('blog_points', 1, 10000)]:
+            value = data.get(key, default)
+            if isinstance(value, bool) or str(value) != str(int(value)) or not (1 if key == 'term_days' else 0) <= int(value) <= upper:
+                raise ValueError()
+            numeric[key] = int(value)
+    except (ValueError, TypeError):
+        return api_error('学期天数或积分设置无效')
     team = Team.objects.create(name=name, code=code, join_password_hash=make_password(join_password), admin_invite_hash=make_password(admin_invite) if admin_invite else "", created_by=request.user)
-    duration = max(1, int(data.get("term_days", 120)))
-    semester = Semester.objects.create(team=team, name=name + "学期", starts_on=timezone.localdate(), ends_on=timezone.localdate() + timedelta(days=duration), min_score=int(data.get("min_score", 10)), screenshot_points=int(data.get("screenshot_points", 1)), logic_points=int(data.get("logic_points", 1)), blog_points=int(data.get("blog_points", 1)))
+    duration = numeric['term_days']
+    semester = Semester.objects.create(team=team, name=(name + "学期")[:80], starts_on=timezone.localdate(), ends_on=timezone.localdate() + timedelta(days=duration), min_score=numeric["min_score"], screenshot_points=numeric["screenshot_points"], logic_points=numeric["logic_points"], blog_points=numeric["blog_points"])
     build_weeks(semester)
     membership = TeamMembership.objects.create(user=request.user, team=team, display_name=display_name, role=TeamMembership.OWNER)
     request.session["team_id"] = team.id
@@ -386,11 +358,11 @@ def members(request):
         return api_error("未加入当前团队", 403)
     semester = active_semester(membership.team)
     week = active_week(semester) if semester else None
-    rows = []
-    for member in membership.team.memberships.filter(is_active=True):
-        score = SubmissionPart.objects.filter(submission__member=member, submission__semester=semester, submission__is_valid=True, status=SubmissionPart.APPROVED).aggregate(total=Sum("points_awarded"))["total"] or 0 if semester else 0
-        count = Submission.objects.filter(member=member, week=week, is_valid=True, parts__kind=SubmissionPart.PROOF, parts__status=SubmissionPart.APPROVED).distinct().count() if week else 0
-        rows.append({"id": member.id, "name": member.display_name, "role": member.role, "score": score, "submissions": count})
+    scores, _ = progress_rows(semester) if semester else ({}, {})
+    _, counts = progress_rows(semester, week) if week else ({}, {})
+    rows = [{'id': member.id, 'name': member.display_name, 'role': member.role,
+             'score': scores.get(member.id, 0), 'submissions': counts.get(member.id, 0)}
+            for member in membership.team.memberships.filter(is_active=True)]
     return JsonResponse({"members": rows})
 
 
@@ -399,13 +371,27 @@ def member_history(request, member_id):
     viewer = membership_for(request)
     if not viewer:
         return api_error("未加入当前团队", 403)
-    target = viewer.team.memberships.filter(id=member_id, is_active=True).first()
+    target = viewer.team.memberships.filter(id=member_id).first()
     if not target:
         return api_error("成员不存在", 404)
     if not viewer.is_admin and target.id != viewer.id and viewer.team.visibility_mode != Team.VISIBILITY_TEAM:
         return api_error("当前团队设置为仅管理员可查看", 403)
-    semester = active_semester(viewer.team) or viewer.team.semesters.order_by("-starts_on").first()
+    semester_id = request.GET.get('semester')
+    if semester_id and not semester_id.isdigit():
+        return api_error('学期编号无效')
+    semester = (viewer.team.semesters.filter(pk=semester_id).first() if semester_id else
+                active_semester(viewer.team) or viewer.team.semesters.order_by('-starts_on').first())
+    if semester_id and not semester:
+        return api_error('学期不存在', 404)
+    if semester and semester.archived_at:
+        total = semester.member_totals.filter(member=target).first()
+        return JsonResponse({'member': {'id': target.id, 'name': total.display_name if total else target.display_name},
+            'archived': True, 'semester': {'id': semester.id, 'name': semester.name},
+            'summary': {'score': total.total_score if total else 0, 'submissions': total.total_submissions if total else 0,
+                        'qualifiedWeeks': total.qualified_weeks if total else 0, 'qualified': None}, 'submissions': []})
     week_id = request.GET.get("week")
+    if week_id and not week_id.isdigit():
+        return api_error("周次编号无效")
     queryset = target.submissions.select_related("week").prefetch_related("parts").filter(team=viewer.team, semester=semester)
     if not viewer.is_admin and target.id != viewer.id:
         queryset = queryset.filter(visibility=Submission.VISIBILITY_TEAM)
@@ -413,16 +399,11 @@ def member_history(request, member_id):
         queryset = queryset.filter(week__semester=semester, week__number=week_id)
     visible_submissions = list(queryset)
     summary_week = semester.weeks.filter(number=week_id).first() if week_id and semester else None
-    if summary_week:
-        week_submissions = [item for item in visible_submissions if item.week_id == summary_week.id and item.is_valid]
-        summary_score = sum(part.points_awarded for item in week_submissions for part in item.parts.all() if part.status == SubmissionPart.APPROVED)
-        summary_submissions = sum(1 for item in week_submissions if any(part.kind == SubmissionPart.PROOF and part.status == SubmissionPart.APPROVED for part in item.parts.all()))
-        summary_qualified = (summary_submissions >= summary_week.effective_min_submissions and summary_score >= summary_week.effective_min_score) if summary_week.effective_require_both else (summary_submissions >= summary_week.effective_min_submissions or summary_score >= summary_week.effective_min_score)
-    else:
-        summary_score = sum(part.points_awarded for item in visible_submissions for part in item.parts.all() if item.is_valid and part.status == SubmissionPart.APPROVED) if semester else 0
-        summary_submissions = sum(1 for item in visible_submissions if item.is_valid)
-        summary_qualified = None
-    return JsonResponse({"member": {"id": target.id, "name": target.display_name}, "summary": {"score": summary_score, "submissions": summary_submissions, "qualified": summary_qualified}, "submissions": [serialize_submission(item, viewer.is_admin or target.id == viewer.id or viewer.team.visibility_mode == Team.VISIBILITY_TEAM) for item in visible_submissions]})
+    scores, counts = progress_rows(semester, summary_week, [target.id], [item.id for item in visible_submissions])
+    summary_score = scores.get(target.id, 0)
+    summary_submissions = counts.get(target.id, 0)
+    summary_qualified = qualified(summary_score, summary_submissions, summary_week) if summary_week else None
+    return JsonResponse({"member": {"id": target.id, "name": target.display_name}, "summary": {"score": summary_score, "submissions": summary_submissions, "qualified": summary_qualified}, "submissions": [serialize_submission(item, True, parts=None if viewer.is_admin or target.id == viewer.id else [part for part in item.parts.all() if part.status == SubmissionPart.APPROVED]) for item in visible_submissions]})
 
 
 @api_login_required
@@ -432,6 +413,8 @@ def submissions(request):
         return api_error("未加入当前团队", 403)
     if request.method == "GET":
         week_id = request.GET.get("week")
+        if week_id and not week_id.isdigit():
+            return api_error("周次编号无效")
         queryset = membership.team.submissions.select_related("member", "week").prefetch_related("parts")
         if request.GET.get("mine") == "1":
             queryset = queryset.filter(member=membership)
@@ -440,7 +423,9 @@ def submissions(request):
         if week_id:
             queryset = queryset.filter(week_id=week_id)
         include_content = membership.is_admin or membership.team.visibility_mode == Team.VISIBILITY_TEAM
-        payload = {"submissions": [serialize_submission(item, include_content or item.member_id == membership.id) for item in queryset]}
+        payload = {'submissions': [serialize_submission(item, include_content or item.member_id == membership.id,
+            parts=None if membership.is_admin or item.member_id == membership.id else
+            [part for part in item.parts.all() if part.status == SubmissionPart.APPROVED]) for item in queryset]}
         if membership.is_admin:
             semester = active_semester(membership.team)
             week = active_week(semester) if semester else None
@@ -481,25 +466,71 @@ def submissions(request):
         return JsonResponse(payload)
     if request.method != "POST":
         return api_error("仅支持 GET 或 POST", 405)
-    semester = active_semester(membership.team)
-    week = active_week(semester) if semester else None
-    if not semester or not week:
-        return api_error("当前没有开放的周次", 409)
-    proof = request.FILES.get("proof")
+    try:
+        week_id = int(request.POST.get('week_id', ''))
+    except (ValueError, TypeError):
+        return api_error('请刷新页面，确认提交周次后重试')
+    proof = request.FILES.get('proof')
     if not proof:
-        return api_error("通过截图为必填项")
-    if proof.content_type not in {"image/png", "image/jpeg", "image/webp"} or proof.size > 5 * 1024 * 1024:
-        return api_error("截图必须是 PNG/JPG/WebP，且不超过 5MB")
-    with transaction.atomic():
-        submission = Submission.objects.create(team=membership.team, member=membership, semester=semester, week=week, is_valid=not week.is_closed)
-        SubmissionPart.objects.create(submission=submission, kind=SubmissionPart.PROOF, upload=proof)
-        logic = request.POST.get("logic", "").strip()
-        if logic:
-            SubmissionPart.objects.create(submission=submission, kind=SubmissionPart.LOGIC, text_content=logic)
-        blog = request.POST.get("blog", "").strip()
-        if blog:
-            SubmissionPart.objects.create(submission=submission, kind=SubmissionPart.BLOG, link=blog)
-    return JsonResponse({"ok": True, "submission": serialize_submission(submission)}, status=201)
+        return api_error('通过截图为必填项')
+    if proof.size > 5 * 1024 * 1024:
+        return api_error('截图不能超过 5MB')
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', Image.DecompressionBombWarning)
+            with Image.open(proof) as picture:
+                if picture.format not in {'PNG', 'JPEG', 'WEBP'}:
+                    raise ValueError('unsupported image')
+                if picture.width * picture.height > 20000000:
+                    raise ValueError('image too large')
+                extension = {'PNG': '.png', 'JPEG': '.jpg', 'WEBP': '.webp'}[picture.format]
+                picture.verify()
+            proof.seek(0)
+            with Image.open(proof) as picture:
+                picture.load()
+        proof.seek(0)
+        import uuid
+        proof.name = uuid.uuid4().hex + extension
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError, Image.DecompressionBombWarning):
+        return api_error('请上传有效的 PNG、JPG 或 WebP 图片')
+    logic = request.POST.get('logic', '').strip()
+    blog = request.POST.get('blog', '').strip()
+    if len(logic) > 50000 or len(blog) > 200:
+        return api_error('逻辑最多 50000 字，Blog 链接最多 200 字')
+    if blog:
+        try:
+            URLValidator(schemes=['http', 'https'])(blog)
+        except ValidationError:
+            return api_error('Blog 必须是有效的 HTTP 或 HTTPS 链接')
+    stored_file = None
+    try:
+        with transaction.atomic():
+            target = Week.objects.filter(pk=week_id, semester__team=membership.team).first()
+            if not target:
+                return api_error('该周次不存在或不属于当前团队', 404)
+            semester = Semester.objects.select_for_update().get(pk=target.semester_id)
+            week = Week.objects.select_for_update().get(pk=target.pk)
+            now = timezone.now()
+            if (semester.archived_at or not semester.is_active or week.is_closed
+                    or not semester.starts_on <= timezone.localdate(now) <= semester.ends_on
+                    or not week.starts_at <= now < week.ends_at):
+                return api_error('该周次已截止或尚未开放，不能继续提交，请刷新页面', 409)
+            if (week.starts_at, week.ends_at) != week_bounds(semester, week.number):
+                return api_error('周次日期异常，请联系管理员修复后再提交', 409)
+            submission = Submission.objects.create(team=membership.team, member=membership, semester=semester, week=week, is_valid=True)
+            Submission.objects.filter(pk=submission.pk).update(submitted_at=now)
+            submission.submitted_at = now
+            part = SubmissionPart.objects.create(submission=submission, kind=SubmissionPart.PROOF, upload=proof)
+            stored_file = part.upload
+            if logic:
+                SubmissionPart.objects.create(submission=submission, kind=SubmissionPart.LOGIC, text_content=logic)
+            if blog:
+                SubmissionPart.objects.create(submission=submission, kind=SubmissionPart.BLOG, link=blog)
+    except Exception:
+        if stored_file:
+            stored_file.delete(save=False)
+        raise
+    return JsonResponse({'ok': True, 'submission': serialize_submission(submission)}, status=201)
 
 
 @api_login_required
@@ -541,51 +572,38 @@ def leaderboard(request):
 def bulk_approve(request):
     membership = membership_for(request)
     if not membership or not membership.is_admin:
-        return api_error("需要管理员权限", 403)
-    if request.method != "POST":
-        return api_error("仅支持 POST", 405)
+        return api_error('需要管理员权限', 403)
+    if request.method != 'POST':
+        return api_error('仅支持 POST', 405)
     data = body(request)
-    submission_ids = data.get("submission_ids", [])
-    part_ids = data.get("part_ids", [])
-    parts = SubmissionPart.objects.filter(submission__team=membership.team)
-    if submission_ids:
-        parts = parts.filter(submission_id__in=submission_ids)
-    elif part_ids:
-        parts = parts.filter(id__in=part_ids)
-    else:
-        return api_error("请选择要审批的提交")
-    part_ids_to_review = list(parts.values_list("id", flat=True))
-    if data.get("action") == "visibility":
-        visibility = data.get("visibility")
-        if visibility not in {Submission.VISIBILITY_TEAM, Submission.VISIBILITY_PRIVATE}:
-            return api_error("展示权限无效")
-        if submission_ids:
-            target_submission_ids = submission_ids
-        else:
-            target_submission_ids = parts.values("submission_id")
-        changed = Submission.objects.filter(
-            team=membership.team,
-            id__in=target_submission_ids,
-        ).update(visibility=visibility)
-        return JsonResponse({"ok": True, "updated_submissions": changed, "visibility": visibility})
-    if data.get("action") == "reject":
-        changed = 0
-        for part in SubmissionPart.objects.select_for_update().filter(id__in=part_ids_to_review, status=SubmissionPart.PENDING):
-            part.status = SubmissionPart.REJECTED
-            part.points_awarded = 0
-            part.review_note = str(data.get("note", "管理员退回"))[:500]
-            part.reviewed_at = timezone.now()
-            part.reviewed_by = request.user
-            part.save(update_fields=["status", "points_awarded", "review_note", "reviewed_at", "reviewed_by"])
-            ReviewLog.objects.create(submission=part.submission, part=part, actor=request.user, action="reject", detail={"note": part.review_note})
-            changed += 1
-        count = changed
-    else:
-        count = approve_submission_parts(request.user, part_ids_to_review, note=str(data.get("note", ""))[:500])
-    return JsonResponse({"ok": True, "approved_parts": count})
+    action = data.get('action', 'approve')
+    try:
+        if action == 'visibility':
+            if data.get('visibility') not in {'team', 'private'}:
+                raise ValidationError('展示权限无效')
+            if data.get('submission_ids'):
+                ids = normalize_ids(data['submission_ids'])
+                targets = Submission.objects.filter(team=membership.team, pk__in=ids)
+                if set(targets.values_list('pk', flat=True)) != ids:
+                    raise ValidationError('提交不存在或不属于当前团队')
+            else:
+                ids = normalize_ids(data.get('part_ids'))
+                parts = SubmissionPart.objects.filter(submission__team=membership.team, pk__in=ids)
+                if set(parts.values_list('pk', flat=True)) != ids:
+                    raise ValidationError('材料不存在或不属于当前团队')
+                targets = Submission.objects.filter(team=membership.team, pk__in=parts.values('submission_id'))
+            count = targets.update(visibility=data['visibility'])
+            return JsonResponse({'ok': True, 'updated_submissions': count, 'visibility': data['visibility']})
+        count = review_submission_parts(request.user, membership.team,
+            part_ids=data.get('part_ids'), submission_ids=data.get('submission_ids'),
+            action=action, note=data.get('note', '管理员退回' if action == 'reject' else ''))
+    except ValidationError as exc:
+        return api_error('; '.join(exc.messages))
+    return JsonResponse({'ok': True, 'approved_parts': count})
 
 
 @api_login_required
+@transaction.atomic
 def team_settings(request):
     membership = membership_for(request)
     if not membership or not membership.is_admin:
@@ -597,6 +615,13 @@ def team_settings(request):
     if request.method != "PUT":
         return api_error("仅支持 GET 或 PUT", 405)
     data = body(request)
+    for key in ['cleanupDelayDays', 'minSubmissions', 'minScore', 'screenshotPoints', 'logicPoints', 'blogPoints']:
+        if key in data:
+            value = data[key]
+            if type(value) is not int or not (1 if key == 'cleanupDelayDays' else 0) <= value <= 100000:
+                return api_error('设置必须是有效范围内的整数')
+    if 'requireBoth' in data and type(data['requireBoth']) is not bool:
+        return api_error('达标规则必须为布尔值')
     if data.get("visibility") in {Team.VISIBILITY_TEAM, Team.VISIBILITY_ADMIN}:
         team.visibility_mode = data["visibility"]
     if "cleanupDelayDays" in data:
@@ -609,10 +634,14 @@ def team_settings(request):
     team.save(update_fields=["visibility_mode", "cleanup_delay_days", "admin_invite_hash"])
     semester = active_semester(team)
     if semester:
+        semester = Semester.objects.select_for_update().get(pk=semester.pk)
+        if semester.archived_at:
+            return api_error('学期已归档', 409)
         for field, key in (("min_submissions", "minSubmissions"), ("min_score", "minScore"), ("require_both", "requireBoth"), ("screenshot_points", "screenshotPoints"), ("logic_points", "logicPoints"), ("blog_points", "blogPoints")):
             if key in data:
                 setattr(semester, field, data[key])
         semester.save()
+        refresh_totals(semester)
     return JsonResponse({"ok": True, "visibility": team.visibility_mode})
 
 
@@ -622,17 +651,29 @@ def export_xlsx(request):
     if not membership or not membership.is_admin:
         return api_error("需要管理员权限", 403)
     team = membership.team
-    semester = team.semesters.filter(id=request.GET.get("semester"), is_active=False).first() if request.GET.get("semester") else team.semesters.order_by("-starts_on").first()
+    semester_id = request.GET.get('semester')
+    if semester_id and not semester_id.isdigit():
+        return api_error('学期编号无效')
+    semester = team.semesters.filter(id=semester_id).first() if semester_id else team.semesters.order_by('-starts_on').first()
     if not semester:
         return api_error("没有可导出的学期", 404)
     workbook = Workbook()
     sheet = workbook.active
+    if semester.archived_at:
+        sheet.title = '学期汇总'
+        sheet.append(['成员姓名', '学期累计积分', '有效提交次数', '达标周数'])
+        for total in semester.member_totals.select_related('member').order_by('member_id'):
+            sheet.append([total.display_name or total.member.display_name, total.total_score, total.total_submissions, total.qualified_weeks])
+            sheet.cell(sheet.max_row, 1).data_type = 's'
+        return FileResponse(_workbook_file(workbook), as_attachment=True, filename=f'{team.code}-archive.xlsx')
     sheet.title = "提交与审核"
     headers = ["成员姓名", "周次", "提交时间", "有效提交", "截图审核", "截图积分", "写题逻辑审核", "逻辑积分", "Blog审核", "Blog积分"]
     sheet.append(headers)
     for submission in team.submissions.filter(semester=semester).select_related("member", "week").prefetch_related("parts"):
         by_kind = {part.kind: part for part in submission.parts.all()}
         sheet.append([submission.member.display_name, submission.week.number, submission.submitted_at.astimezone().strftime("%Y-%m-%d %H:%M"), "是" if submission.is_valid else "否", by_kind.get("proof").status if by_kind.get("proof") else "", by_kind.get("proof").points_awarded if by_kind.get("proof") else 0, by_kind.get("logic").status if by_kind.get("logic") else "", by_kind.get("logic").points_awarded if by_kind.get("logic") else 0, by_kind.get("blog").status if by_kind.get("blog") else "", by_kind.get("blog").points_awarded if by_kind.get("blog") else 0])
+    for row in sheet.iter_rows(min_row=2):
+        row[0].data_type = 's'
     for column, value in enumerate(headers, 1):
         sheet.column_dimensions[get_column_letter(column)].width = max(12, len(value) + 2)
     response = FileResponse(_workbook_file(workbook), as_attachment=True, filename=f"{team.code}-{semester.name}-export.xlsx")
@@ -685,9 +726,48 @@ def arena_admin(request):
 
 
 def _workbook_file(workbook):
-    import tempfile
-    file = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
-    workbook.save(file.name)
-    file.seek(0)
-    return open(file.name, "rb")
+    output = io.BytesIO()
+    workbook.save(output)
+    output.seek(0)
+    return output
 
+
+@api_login_required
+def attachment(request, part_id):
+    if request.method not in {'GET', 'HEAD'}:
+        return api_error('仅支持 GET 或 HEAD', 405)
+    part = SubmissionPart.objects.select_related('submission__team', 'submission__semester').filter(pk=part_id).first()
+    if not part or not part.upload or part.submission.semester.archived_at:
+        raise Http404
+    submission = part.submission
+    viewer = membership_for(request, submission.team_id)
+    if not viewer or not (viewer.is_admin or viewer.id == submission.member_id or
+            (submission.visibility == Submission.VISIBILITY_TEAM and viewer.team.visibility_mode == Team.VISIBILITY_TEAM
+             and part.status == SubmissionPart.APPROVED)):
+        raise Http404
+    if settings.USE_X_ACCEL_REDIRECT:
+        response = HttpResponse()
+        response['X-Accel-Redirect'] = '/protected-media/' + quote(part.upload.name, safe='/')
+    else:
+        try:
+            response = FileResponse(part.upload.open('rb'))
+        except FileNotFoundError:
+            raise Http404
+    import mimetypes
+    content_type = mimetypes.guess_type(part.upload.name)[0]
+    if content_type not in {'image/png', 'image/jpeg', 'image/webp'}:
+        content_type = 'application/octet-stream'
+        response['Content-Disposition'] = 'attachment'
+    response['Content-Type'] = content_type
+    response['Cache-Control'] = 'private, no-store, max-age=0'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
+@api_login_required
+def semesters(request):
+    membership = membership_for(request)
+    if not membership:
+        return api_error('未加入当前团队', 403)
+    return JsonResponse({'semesters': [{'id': item.id, 'name': item.name, 'archived': bool(item.archived_at),
+        'weeks': list(item.weeks.values_list('number', flat=True))} for item in membership.team.semesters.all()]})

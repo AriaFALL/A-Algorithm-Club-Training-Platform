@@ -69,7 +69,8 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = [BASE_DIR]
+STATICFILES_DIRS = [BASE_DIR / "static"]
+USE_X_ACCEL_REDIRECT = os.environ.get("DJANGO_USE_X_ACCEL_REDIRECT", "0") == "1"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 

@@ -59,6 +59,7 @@ class Semester(models.Model):
     logic_points = models.PositiveIntegerField(default=1)
     blog_points = models.PositiveIntegerField(default=1)
     cleanup_at = models.DateTimeField(null=True, blank=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -164,6 +165,7 @@ class SemesterMemberTotal(models.Model):
     total_score = models.PositiveIntegerField(default=0)
     qualified_weeks = models.PositiveIntegerField(default=0)
     total_submissions = models.PositiveIntegerField(default=0)
+    display_name = models.CharField(max_length=40, blank=True)
     finalized_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -179,6 +181,7 @@ class CleanupJob(models.Model):
     deleted_submissions = models.PositiveIntegerField(default=0)
     deleted_files = models.PositiveIntegerField(default=0)
     error = models.TextField(blank=True)
+    pending_files = models.JSONField(default=list, blank=True)
 
 
 class Arena(models.Model):

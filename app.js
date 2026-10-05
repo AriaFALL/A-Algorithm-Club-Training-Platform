@@ -1,4 +1,4 @@
-﻿const rankingData = {
+const rankingData = {
   week: [],
   term: []
 };
@@ -478,7 +478,8 @@ function resetSubmissionForm() {
   if (title) title.textContent = '点击上传截图';
   if (hint) hint.textContent = '支持 PNG、JPG、WebP，单张不超过 5MB';
 }
-function openModal() { resetSubmissionForm(); $('#submissionModal').classList.add('open'); $('#submissionModal').setAttribute('aria-hidden','false'); $('#proofImage').focus(); }
+let currentSubmissionWeekId = null;
+function openModal() { resetSubmissionForm(); $('#submissionForm').dataset.weekId = currentSubmissionWeekId || ''; $('#submissionModal').classList.add('open'); $('#submissionModal').setAttribute('aria-hidden','false'); $('#proofImage').focus(); }
 function closeModal() { $('#submissionModal').classList.remove('open'); $('#submissionModal').setAttribute('aria-hidden','true'); }
 
 $$('.nav-item[data-view]').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
@@ -773,6 +774,7 @@ $('#submissionForm').addEventListener('submit', async (event) => {
     return;
   }
   const formData = new FormData(form);
+  formData.set('week_id', form.dataset.weekId || '');
   formData.set('proof', $('#proofImage').files[0]);
   formData.set('logic', $('#logicText').value);
   formData.set('blog', $('#blogUrl').value);
@@ -904,6 +906,7 @@ async function loadDashboardSummary({forceMine = false} = {}) {
   if (scoreValue && dashboard.semester) scoreValue.innerHTML = `${dashboard.score} <small>/ ${dashboard.semester.minScore} 分</small>`;
   if (scoreFoot && dashboard.semester) scoreFoot.textContent = dashboard.score >= dashboard.semester.minScore ? '本周已达标' : `还差 ${Math.max(0, dashboard.semester.minScore - dashboard.score)} 分达标`;
   if (submissionValue && dashboard.semester) submissionValue.innerHTML = `${dashboard.submissions} <small>/ ${dashboard.semester.minSubmissions} 次</small>`;
+  currentSubmissionWeekId = dashboard.current_week?.id || null;
   if (dashboard.current_week) {
     const select = $('#historyWeek');
     if (select) select.innerHTML = [dashboard.current_week.number, dashboard.current_week.number - 1, dashboard.current_week.number - 2].filter((number) => number > 0).map((number) => `<option value="${number}">第 ${String(number).padStart(2, '0')} 周</option>`).join('');
@@ -1046,8 +1049,29 @@ function openMemberHistory(key) {
 async function openLiveMemberHistory(memberId) {
   const requestVersion = ++historyRequestVersion;
   try {
+    let semesterSelect = $('#historySemester');
+    if (!semesterSelect) {
+      semesterSelect = document.createElement('select'); semesterSelect.id = 'historySemester'; semesterSelect.setAttribute('aria-label', '选择学期');
+      $('#historyWeek').before(semesterSelect);
+      semesterSelect.addEventListener('change', () => { semesterSelect.dataset.weeksFor = ''; if (activeHistoryMemberId) openLiveMemberHistory(activeHistoryMemberId); });
+    }
+    const semesterResponse = await clubApi.request('/api/semesters');
+    if (requestVersion !== historyRequestVersion) return;
+    if (!semesterResponse.ok) throw new Error('学期加载失败');
+    const semesterList = (await semesterResponse.json()).semesters || [];
+    if (requestVersion !== historyRequestVersion) return;
+    const selected = semesterSelect.value;
+    semesterSelect.innerHTML = semesterList.map(item => `<option value="${item.id}">${escapeHtml(item.name)}${item.archived ? '（已归档）' : ''}</option>`).join('');
+    if (semesterList.some(item => String(item.id) === selected)) semesterSelect.value = selected;
+    const semester = semesterList.find(item => String(item.id) === semesterSelect.value);
+    if (semester && semesterSelect.dataset.weeksFor !== String(semester.id)) {
+      const previousWeek = $('#historyWeek').value;
+      $('#historyWeek').innerHTML = semester.weeks.map(number => `<option value="${number}">第 ${number} 周</option>`).join('');
+      if (semester.weeks.includes(Number(previousWeek))) $('#historyWeek').value = previousWeek;
+      semesterSelect.dataset.weeksFor = String(semester.id);
+    }
     const week = $('#historyWeek').value;
-    const response = await clubApi.request(`/api/members/${memberId}/history?week=${week}`);
+    const response = await clubApi.request(`/api/members/${memberId}/history?week=${week}${semester ? `&semester=${semester.id}` : ''}`);
     if (requestVersion !== historyRequestVersion) return;
     if (!response.ok) { showToast('当前权限无法查看该成员材料'); return; }
     const payload = await response.json();
@@ -1067,12 +1091,22 @@ async function openLiveMemberHistory(memberId) {
       return `<div class="history-item"><div class="history-item-icon ${iconStatus}">${icon}</div><div><strong>第 ${item.week} 周提交</strong><small>${new Date(item.submitted_at).toLocaleString('zh-CN')}</small></div><span>${points} 分</span><button class="history-view" type="button" data-review="${key}">查看内容</button></div>`;
     }).join('') : '<div class="queue-empty">该周暂无提交记录</div>';
     $$('.history-view', $('#historyList')).forEach((button) => button.addEventListener('click', () => { closeMemberHistory(); openReview(button.dataset.review); }));
-    $('#historyScore').textContent = `${submissions.reduce((total, item) => total + item.parts.reduce((sum, part) => sum + (part.points || 0), 0), 0)} 分`;
-    $('#historyCount').textContent = `${submissions.length} 次`;
-    const historyStatus = $('.history-summary strong.positive');
+    $('#historyScore').textContent = `${payload.summary?.score || 0} 分`;
+    $('#historyCount').textContent = `${payload.summary?.submissions || 0} 次`;
+    const historyStatus = $('.history-summary > div:last-child strong');
     if (historyStatus && payload.summary?.qualified !== null && payload.summary?.qualified !== undefined) {
       historyStatus.textContent = payload.summary.qualified ? '已达标' : '未达标';
       historyStatus.className = payload.summary.qualified ? 'positive' : 'pending-text';
+    }
+    $('#historyWeek').disabled = Boolean(payload.archived);
+    $('.history-summary > div:first-child span').textContent = payload.archived ? '学期累计积分' : '本周积分';
+    const subtitle = $('.history-author small');
+    if (subtitle) subtitle.textContent = payload.archived ? `${payload.semester.name} · 已归档` : '本团队 · 按周查看训练记录';
+    if (payload.archived) {
+      $('#historyList').innerHTML = '<div class="queue-empty">该学期已归档，仅保留累计统计，提交明细已清理。</div>';
+      if (historyStatus) { historyStatus.textContent = `${payload.summary?.qualifiedWeeks || 0} 周达标`; historyStatus.className = 'positive'; }
+    } else if (historyStatus && payload.summary?.qualified == null) {
+      historyStatus.textContent = '—';
     }
     historyModal.classList.add('open');
     historyModal.setAttribute('aria-hidden','false');

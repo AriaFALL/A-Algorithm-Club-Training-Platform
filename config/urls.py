@@ -52,5 +52,4 @@ urlpatterns = [
     path("api.js", lambda request: frontend_asset(request, "api.js")),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Media is private in development too; attachments use /api/attachments/<id>.
