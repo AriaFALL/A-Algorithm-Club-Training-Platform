@@ -1,132 +1,192 @@
 from collections import defaultdict
 from datetime import datetime, time, timedelta
-from pathlib import Path
 
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.files.storage import default_storage
 from django.db import models, transaction
 from django.utils import timezone
 
-from .models import ReviewLog, SemesterMemberTotal, Submission, SubmissionPart, Week
+from .models import CleanupJob, ReviewLog, Semester, SemesterMemberTotal, Submission, SubmissionPart, TeamMembership, Week
 
 
 def score_part(part):
-    points = {
-        SubmissionPart.PROOF: part.submission.semester.screenshot_points,
-        SubmissionPart.LOGIC: part.submission.semester.logic_points,
-        SubmissionPart.BLOG: part.submission.semester.blog_points,
-    }
-    return points.get(part.kind, 0)
+    semester = part.submission.semester
+    return {SubmissionPart.PROOF: semester.screenshot_points, SubmissionPart.LOGIC: semester.logic_points, SubmissionPart.BLOG: semester.blog_points}.get(part.kind, 0)
+
+
+def progress_rows(semester, week=None, member_ids=None, submission_ids=None):
+    """One definition of approved scores and accepted proof counts."""
+    submissions = Submission.objects.filter(semester=semester, is_valid=True)
+    if week is not None:
+        submissions = submissions.filter(week=week)
+    if member_ids is not None:
+        submissions = submissions.filter(member_id__in=member_ids)
+    if submission_ids is not None:
+        submissions = submissions.filter(pk__in=submission_ids)
+    scores = dict(SubmissionPart.objects.filter(submission__in=submissions, status=SubmissionPart.APPROVED)
+                  .values('submission__member_id').annotate(total=models.Sum('points_awarded'))
+                  .values_list('submission__member_id', 'total'))
+    counts = dict(submissions.filter(parts__kind=SubmissionPart.PROOF, parts__status=SubmissionPart.APPROVED)
+                  .values('member_id').annotate(total=models.Count('id', distinct=True)).values_list('member_id', 'total'))
+    return scores, counts
+
+
+def qualified(score, count, week):
+    checks = (count >= week.effective_min_submissions, score >= week.effective_min_score)
+    return all(checks) if week.effective_require_both else any(checks)
 
 
 def submission_stats(week, member=None):
-    queryset = Submission.objects.filter(week=week, is_valid=True)
-    if member is not None:
-        queryset = queryset.filter(member=member)
-    submission_ids = queryset.values_list("id", flat=True)
-    approved = SubmissionPart.objects.filter(submission_id__in=submission_ids, status=SubmissionPart.APPROVED)
-    totals = defaultdict(int)
-    for part in approved.select_related("submission"):
-        totals[part.submission.member_id] += part.points_awarded
-    counts = defaultdict(int)
-    for submission_id, member_id in queryset.values_list("id", "member_id"):
-        if SubmissionPart.objects.filter(submission_id=submission_id, kind=SubmissionPart.PROOF, status=SubmissionPart.APPROVED).exists():
-            counts[member_id] += 1
-    return totals, counts
+    scores, counts = progress_rows(week.semester, week, [member.id] if member else None)
+    return defaultdict(int, scores), defaultdict(int, counts)
+
+
+def refresh_totals(semester):
+    """Caller holds the semester lock, shared by review, settlement and archive."""
+    if semester.archived_at:
+        return
+    scores, counts = progress_rows(semester)
+    qualified_counts = defaultdict(int)
+    members = list(semester.team.memberships.all())
+    for week in semester.weeks.filter(is_closed=True):
+        week_scores, week_counts = progress_rows(semester, week)
+        for member in members:
+            qualified_counts[member.id] += int(qualified(week_scores.get(member.id, 0), week_counts.get(member.id, 0), week))
+    for member in members:
+        SemesterMemberTotal.objects.update_or_create(semester=semester, member=member, defaults={
+            'display_name': member.display_name, 'total_score': scores.get(member.id, 0),
+            'total_submissions': counts.get(member.id, 0), 'qualified_weeks': qualified_counts[member.id],
+        })
+
+
+def normalize_ids(values):
+    if not isinstance(values, list) or not values or len(values) > 1000:
+        raise ValidationError('请选择 1 至 1000 个有效编号')
+    if any(type(value) is not int or value <= 0 for value in values):
+        raise ValidationError('编号必须为正整数')
+    return set(values)
 
 
 @transaction.atomic
-def approve_submission_parts(actor, part_ids=None, submission_ids=None, note=""):
-    parts = SubmissionPart.objects.select_for_update().select_related("submission__semester", "submission__member").filter(status=SubmissionPart.PENDING)
-    if part_ids:
-        parts = parts.filter(id__in=part_ids)
-    elif submission_ids:
-        parts = parts.filter(submission_id__in=submission_ids)
+def review_submission_parts(actor, team, *, part_ids=None, submission_ids=None, action='approve', note=''):
+    if not TeamMembership.objects.filter(user=actor, team=team, is_active=True, role__in=['admin', 'owner']).exists():
+        raise PermissionDenied('需要当前团队管理员权限')
+    if action not in {'approve', 'reject'}:
+        raise ValidationError('审核操作无效')
+    if part_ids is not None and submission_ids is not None:
+        raise ValidationError('请只指定一种编号')
+    ids = normalize_ids(part_ids if part_ids is not None else submission_ids)
+    targets = SubmissionPart.objects.filter(submission__team=team)
+    if part_ids is not None:
+        targets = targets.filter(pk__in=ids)
+        found = set(targets.values_list('id', flat=True))
+    else:
+        submissions = Submission.objects.filter(team=team, pk__in=ids)
+        found = set(submissions.values_list('id', flat=True))
+        targets = targets.filter(submission_id__in=ids)
+    if found != ids or not targets.exists():
+        raise ValidationError('所选材料不存在或不属于当前团队')
+    semester_ids = set(targets.values_list('submission__semester_id', flat=True))
+    semesters = list(Semester.objects.select_for_update().filter(pk__in=semester_ids).order_by('pk'))
+    if any(semester.archived_at for semester in semesters):
+        raise ValidationError('学期已归档，不能继续审核')
+    # Recheck after acquiring locks: cleanup could have removed the targets.
+    if not targets.exists():
+        raise ValidationError('材料已清理，请刷新页面')
     changed = 0
-    for part in parts:
+    for part in targets.select_for_update(of=('self',)).select_related('submission__semester').filter(status=SubmissionPart.PENDING):
         if not part.has_content:
             continue
-        part.status = SubmissionPart.APPROVED
-        part.points_awarded = score_part(part)
-        part.review_note = note
+        part.status = SubmissionPart.APPROVED if action == 'approve' else SubmissionPart.REJECTED
+        part.points_awarded = score_part(part) if action == 'approve' else 0
+        part.review_note = str(note)[:500]
         part.reviewed_at = timezone.now()
         part.reviewed_by = actor
-        part.save(update_fields=["status", "points_awarded", "review_note", "reviewed_at", "reviewed_by"])
-        ReviewLog.objects.create(submission=part.submission, part=part, actor=actor, action="approve", detail={"points": part.points_awarded, "note": note})
+        part.save(update_fields=['status', 'points_awarded', 'review_note', 'reviewed_at', 'reviewed_by'])
+        ReviewLog.objects.create(submission=part.submission, part=part, actor=actor, action=action,
+                                 detail={'points': part.points_awarded, 'note': part.review_note})
         changed += 1
+    for semester in semesters:
+        refresh_totals(semester)
     return changed
 
 
+def approve_submission_parts(actor, team, part_ids=None, submission_ids=None, note=''):
+    return review_submission_parts(actor, team, part_ids=part_ids, submission_ids=submission_ids, note=note)
+
+
+def week_bounds(semester, number):
+    monday = semester.starts_on - timedelta(days=semester.starts_on.weekday())
+    start = timezone.make_aware(datetime.combine(monday + timedelta(weeks=number - 1), time.min))
+    return start, start + timedelta(days=7)
+
+
+def validate_week_dates(semester):
+    if any((week.starts_at, week.ends_at) != week_bounds(semester, week.number) for week in semester.weeks.all()):
+        raise ValidationError('周次日期异常，请先运行 repair_weeks 检查并修复')
+
+
 def build_weeks(semester):
-    existing = {week.number: week for week in semester.weeks.all()}
-    current = semester.starts_on
-    # A training week runs Monday 00:00 through the following Monday 00:00.
-    # This makes the submission deadline Sunday 24:00 in the configured
-    # timezone, regardless of the semester's calendar start date.
-    while current.weekday() != 0:
-        current -= timedelta(days=1)
-    first_week_start = current
+    """Create missing weeks only; never silently rewrite historical records."""
     number = 1
-    while current <= semester.ends_on:
-        start = timezone.make_aware(datetime.combine(current, time.min))
-        end = start + timedelta(days=7)
-        if number not in existing:
-            existing[number] = Week.objects.create(semester=semester, number=number, starts_at=start, ends_at=end)
-        current += timedelta(days=7)
+    start, end = week_bounds(semester, number)
+    while timezone.localdate(start) <= semester.ends_on:
+        Week.objects.get_or_create(semester=semester, number=number, defaults={'starts_at': start, 'ends_at': end})
         number += 1
-    # Legacy data can contain a trailing week beyond the semester end. Keep
-    # its records, but normalize its boundary to the same Monday based rule.
-    for week in existing.values():
-        start_date = first_week_start + timedelta(days=week.number - 1)
-        start = timezone.make_aware(datetime.combine(start_date, time.min))
-        end = start + timedelta(days=7)
-        if week.starts_at != start or week.ends_at != end:
-            Week.objects.filter(pk=week.pk).update(starts_at=start, ends_at=end)
-            week.starts_at = start
-            week.ends_at = end
-    return list(sorted(existing.values(), key=lambda week: week.number))
-
-
-def cleanup_semester(semester):
-    from django.db.models import Sum
-
-    members = semester.team.memberships.filter(is_active=True)
-    for member in members:
-        approved_points = SubmissionPart.objects.filter(submission__semester=semester, submission__member=member, status=SubmissionPart.APPROVED).aggregate(total=Sum("points_awarded"))["total"] or 0
-        valid_submissions = Submission.objects.filter(semester=semester, member=member, is_valid=True).count()
-        SemesterMemberTotal.objects.update_or_create(semester=semester, member=member, defaults={"total_score": approved_points, "total_submissions": valid_submissions})
-    files = []
-    for part in SubmissionPart.objects.filter(submission__semester=semester).only("upload"):
-        if part.upload:
-            files.append(part.upload.path)
-    deleted, _ = Submission.objects.filter(semester=semester).delete()
-    deleted_files = 0
-    for path in files:
-        try:
-            Path(path).unlink(missing_ok=True)
-            deleted_files += 1
-        except OSError:
-            pass
-    semester.is_active = False
-    semester.save(update_fields=["is_active"])
-    return deleted, deleted_files
+        start, end = week_bounds(semester, number)
+    return list(semester.weeks.order_by('number'))
 
 
 @transaction.atomic
 def settle_week(week):
-    """Close a finished week and refresh durable semester totals."""
-    week.is_closed = True
-    week.settled_at = timezone.now()
-    week.save(update_fields=["is_closed", "settled_at"])
-    semester = week.semester
-    for member in semester.team.memberships.filter(is_active=True):
-        score = SubmissionPart.objects.filter(submission__member=member, submission__semester=semester, submission__week=week, submission__is_valid=True, status=SubmissionPart.APPROVED).aggregate(total=models.Sum("points_awarded"))["total"] or 0
-        count = Submission.objects.filter(member=member, semester=semester, week=week, is_valid=True, parts__kind=SubmissionPart.PROOF, parts__status=SubmissionPart.APPROVED).distinct().count()
-        total_score = SubmissionPart.objects.filter(submission__member=member, submission__semester=semester, submission__is_valid=True, status=SubmissionPart.APPROVED).aggregate(total=models.Sum("points_awarded"))["total"] or 0
-        total_submissions = Submission.objects.filter(member=member, semester=semester, is_valid=True, parts__kind=SubmissionPart.PROOF, parts__status=SubmissionPart.APPROVED).distinct().count()
-        qualified_weeks = 0
-        for closed_week in semester.weeks.filter(is_closed=True):
-            closed_score = SubmissionPart.objects.filter(submission__member=member, submission__week=closed_week, submission__is_valid=True, status=SubmissionPart.APPROVED).aggregate(total=models.Sum("points_awarded"))["total"] or 0
-            closed_count = Submission.objects.filter(member=member, week=closed_week, is_valid=True, parts__kind=SubmissionPart.PROOF, parts__status=SubmissionPart.APPROVED).distinct().count()
-            qualified = (closed_count >= closed_week.effective_min_submissions and closed_score >= closed_week.effective_min_score) if closed_week.effective_require_both else (closed_count >= closed_week.effective_min_submissions or closed_score >= closed_week.effective_min_score)
-            qualified_weeks += int(qualified)
-        SemesterMemberTotal.objects.update_or_create(semester=semester, member=member, defaults={"total_score": total_score, "total_submissions": total_submissions, "qualified_weeks": qualified_weeks})
+    semester = Semester.objects.select_for_update().get(pk=week.semester_id)
+    if semester.archived_at:
+        return week
+    validate_week_dates(semester)
+    Week.objects.filter(pk=week.pk).update(is_closed=True, settled_at=timezone.now())
+    refresh_totals(semester)
+    week.refresh_from_db()
     return week
+
+
+def cleanup_semester(semester):
+    """Commit archive + file manifest before deletion; retries keep the snapshot."""
+    with transaction.atomic():
+        semester = Semester.objects.select_for_update().get(pk=semester.pk)
+        job, _ = CleanupJob.objects.get_or_create(semester=semester, defaults={'scheduled_for': semester.cleanup_at or timezone.now()})
+        if job.status == 'completed':
+            return job.deleted_submissions, job.deleted_files
+        if not semester.archived_at:
+            validate_week_dates(semester)
+            semester.weeks.filter(ends_at__lte=timezone.now(), is_closed=False).update(is_closed=True, settled_at=timezone.now())
+            refresh_totals(semester)
+            job.pending_files = list(SubmissionPart.objects.filter(submission__semester=semester).exclude(upload='').values_list('upload', flat=True).distinct())
+            job.deleted_submissions = semester.submissions.count()
+            job.save(update_fields=['pending_files', 'deleted_submissions'])
+            semester.archived_at = timezone.now()
+            semester.is_active = False
+            semester.save(update_fields=['archived_at', 'is_active'])
+            ReviewLog.objects.filter(submission__semester=semester).delete()
+            semester.submissions.all().delete()
+        job.status = 'running'
+        job.started_at = timezone.now()
+        job.error = ''
+        job.save(update_fields=['status', 'started_at', 'error'])
+    try:
+        # Keep the manifest until ALL files have been removed. Missing files are safe on retry.
+        for name in job.pending_files:
+            default_storage.delete(name)
+        with transaction.atomic():
+            Semester.objects.select_for_update().get(pk=semester.pk)
+            job.refresh_from_db()
+            if job.status != 'completed':
+                job.deleted_files = len(job.pending_files)
+                job.pending_files = []
+                job.status = 'completed'
+                job.finished_at = timezone.now()
+                job.error = ''
+                job.save(update_fields=['deleted_files', 'pending_files', 'status', 'finished_at', 'error'])
+        return job.deleted_submissions, job.deleted_files
+    except Exception as exc:
+        CleanupJob.objects.filter(pk=job.pk).exclude(status='completed').update(status='failed', error=str(exc)[:2000])
+        raise

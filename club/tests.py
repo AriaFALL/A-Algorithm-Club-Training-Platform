@@ -1,4 +1,7 @@
 import json
+import io
+from PIL import Image
+from django.core.management import call_command
 from datetime import date, datetime, time, timedelta
 from unittest.mock import patch
 
@@ -78,11 +81,13 @@ class ClubApiTests(TestCase):
     def test_submission_requires_proof_and_can_be_approved(self):
         response = self.client.post("/api/submissions", data={})
         self.assertEqual(response.status_code, 400)
-        proof = SimpleUploadedFile("proof.png", b"fake-image", content_type="image/png")
-        response = self.client.post("/api/submissions", data={"proof": proof, "logic": "two pointers", "blog": "https://example.com"})
+        image = io.BytesIO()
+        Image.new('RGB', (2, 2)).save(image, format='PNG')
+        proof = SimpleUploadedFile('proof.png', image.getvalue(), content_type='image/png')
+        response = self.client.post("/api/submissions", data={"week_id": self.semester.weeks.get(starts_at__lte=timezone.now(), ends_at__gt=timezone.now()).id, "proof": proof, "logic": "two pointers", "blog": "https://example.com"})
         self.assertEqual(response.status_code, 201)
         submission = self.member.submissions.first()
-        approve_submission_parts(self.user, submission_ids=[submission.id])
+        approve_submission_parts(self.user, self.team, submission_ids=[submission.id])
         self.assertEqual(submission.parts.filter(status=SubmissionPart.APPROVED).count(), 3)
 
     def test_team_visibility_blocks_other_member_history(self):
@@ -144,13 +149,16 @@ class ClubApiTests(TestCase):
             self.assertEqual(week.ends_at - week.starts_at, timedelta(days=7))
             self.assertEqual(timezone.localtime(week.ends_at).weekday(), 0)
 
-    def test_build_weeks_repairs_legacy_sunday_boundaries(self):
+    def test_build_weeks_preserves_history_until_explicit_repair(self):
         week = self.semester.weeks.order_by("number").first()
         legacy_start = week.starts_at - timedelta(days=1)
         week.starts_at = legacy_start
         week.ends_at = legacy_start + timedelta(days=7)
         week.save(update_fields=["starts_at", "ends_at"])
         build_weeks(self.semester)
+        week.refresh_from_db()
+        self.assertEqual(week.starts_at, legacy_start)
+        call_command('repair_weeks', semester=self.semester.id, apply=True, stdout=io.StringIO())
         week.refresh_from_db()
         self.assertEqual(timezone.localtime(week.starts_at).weekday(), 0)
         self.assertEqual(week.ends_at - week.starts_at, timedelta(days=7))
@@ -162,7 +170,7 @@ class ClubApiTests(TestCase):
             starts_at=timezone.make_aware(datetime.combine(date.today(), time.min)),
             ends_at=timezone.make_aware(datetime.combine(date.today() + timedelta(days=7), time.min)),
         )
-        build_weeks(self.semester)
+        call_command('repair_weeks', semester=self.semester.id, apply=True, stdout=io.StringIO())
         trailing.refresh_from_db()
         self.assertEqual(timezone.localtime(trailing.starts_at).weekday(), 0)
         self.assertEqual(trailing.ends_at - trailing.starts_at, timedelta(days=7))
