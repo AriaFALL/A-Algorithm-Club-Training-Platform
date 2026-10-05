@@ -466,7 +466,19 @@ function ensureArenaAdminPanel(role) {
   $('#arenaCloseButton').addEventListener('click', async () => { const response = await clubApi.request('/api/admin/arena', {method:'DELETE'}); if (response.ok) { $('#arenaAdminStatus').textContent = '当前擂台已关闭'; showToast('当前擂台已关闭'); } else showToast('关闭擂台失败，请重试'); });
 }
 
-function openModal() { $('#submissionModal').classList.add('open'); $('#submissionModal').setAttribute('aria-hidden','false'); $('#proofImage').focus(); }
+function resetSubmissionForm() {
+  const form = $('#submissionForm');
+  if (!form) return;
+  const preview = $('.upload-preview', form);
+  if (preview?.dataset.objectUrl) URL.revokeObjectURL(preview.dataset.objectUrl);
+  preview?.remove();
+  form.reset();
+  const title = $('.upload-box strong');
+  const hint = $('#proofHint');
+  if (title) title.textContent = '点击上传截图';
+  if (hint) hint.textContent = '支持 PNG、JPG、WebP，单张不超过 5MB';
+}
+function openModal() { resetSubmissionForm(); $('#submissionModal').classList.add('open'); $('#submissionModal').setAttribute('aria-hidden','false'); $('#proofImage').focus(); }
 function closeModal() { $('#submissionModal').classList.remove('open'); $('#submissionModal').setAttribute('aria-hidden','true'); }
 
 $$('.nav-item[data-view]').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
@@ -475,7 +487,11 @@ $$('[data-view-target]').forEach((button) => button.addEventListener('click', ()
 ['openSubmission','openSubmissionSecondary','emptyAction'].forEach((id) => { const button = $(`#${id}`); if (button) button.addEventListener('click', openModal); });
 $('#closeSubmission').addEventListener('click', closeModal);
 $('#submissionModal').addEventListener('click', (event) => { if (event.target.id === 'submissionModal') closeModal(); });
-document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeModal(); });
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  if (imageLightbox?.classList.contains('open')) closeImageLightbox();
+  else closeModal();
+});
 
 const reviewData = {
   zhou: {name:'周同学', initial:'周', time:'今天 11:06 · 第 3 次提交', logic:'使用排序和双指针，先固定左端点，再移动右端点寻找满足条件的最优解。', visibility:'team'},
@@ -659,7 +675,18 @@ function wireShowcaseProofs(root=document) {
 }
 $('#closeReview').addEventListener('click', closeReview);
 reviewModal.addEventListener('click', (event) => { if (event.target.id === 'reviewModal') closeReview(); });
-$('#zoomReviewImage').addEventListener('click', () => { const box = $('.screenshot-placeholder', reviewModal); if ($('#reviewImage').classList.contains('visible')) box.classList.toggle('zoomed'); else showToast('当前记录没有可预览图片'); });
+const imageLightbox = $('#imageLightbox');
+function closeImageLightbox() { imageLightbox.classList.remove('open'); imageLightbox.setAttribute('aria-hidden','true'); $('#lightboxImage').removeAttribute('src'); }
+$('#zoomReviewImage').addEventListener('click', () => {
+  const source = $('#reviewImage');
+  if (!source.classList.contains('visible') || !source.src) { showToast('当前记录没有可预览图片'); return; }
+  $('#lightboxImage').src = source.src;
+  $('#lightboxImage').alt = source.alt || '放大后的通过截图';
+  imageLightbox.classList.add('open');
+  imageLightbox.setAttribute('aria-hidden','false');
+});
+$('#closeImageLightbox').addEventListener('click', closeImageLightbox);
+imageLightbox.addEventListener('click', (event) => { if (event.target === imageLightbox) closeImageLightbox(); });
 $('#visibilitySelect').addEventListener('change', async (event) => {
   const nextVisibility = event.target.value;
   const previousVisibility = reviewData[activeReviewKey]?.visibility || 'team';
@@ -739,7 +766,7 @@ $('#submissionForm').addEventListener('submit', async (event) => {
   if (submitButton) { submitButton.disabled = true; submitButton.setAttribute('aria-busy', 'true'); submitButton.dataset.label = submitButton.textContent; submitButton.textContent = '正在提交…'; }
   if (demoMode) {
     closeModal();
-    form.reset();
+    resetSubmissionForm();
     playFeedback('submission-success');
     showToast('演示提交成功，已进入审核队列');
     if (submitButton) { submitButton.disabled = false; submitButton.removeAttribute('aria-busy'); submitButton.textContent = submitButton.dataset.label || '提交审核'; }
@@ -758,7 +785,7 @@ $('#submissionForm').addEventListener('submit', async (event) => {
     }
   } catch (error) { showToast(error.message || '提交失败，请稍后重试'); if (submitButton) { submitButton.disabled = false; submitButton.removeAttribute('aria-busy'); submitButton.textContent = submitButton.dataset.label || '提交审核'; } return; }
   closeModal();
-  form.reset();
+  resetSubmissionForm();
   playFeedback('submission-success');
   showToast('提交成功，已进入审核队列');
   refreshAfterMutation({refreshAdmin: canManage});
@@ -770,7 +797,9 @@ $('#proofImage').addEventListener('change', (event) => {
   if (!file || !box) return;
   let preview = box.querySelector('.upload-preview');
   if (!preview) { preview = document.createElement('img'); preview.className = 'upload-preview'; box.prepend(preview); }
-  preview.src = URL.createObjectURL(file);
+  const objectUrl = URL.createObjectURL(file);
+  preview.src = objectUrl;
+  preview.dataset.objectUrl = objectUrl;
   const title = box.querySelector('strong'); if (title) title.textContent = file.name;
   const hint = box.querySelector('small'); if (hint) hint.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB · 已选择，可提交`;
 });

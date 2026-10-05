@@ -758,3 +758,9 @@ body:has(.auth-shell){background:#ffffff}
 .last-week-row span,.last-week-row small{color:var(--muted);font-size:10px;text-align:right}
 .last-week-row small{grid-column:1/-1;text-align:left}
 @media(max-width:760px){.last-week-row{grid-template-columns:1fr}.last-week-row span{text-align:left}}
+.review-quote{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
+.image-lightbox{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:32px;background:rgba(9,24,42,.86);z-index:30;cursor:zoom-out}
+.image-lightbox.open{display:flex}
+.image-lightbox img{display:block;max-width:calc(100vw - 64px);max-height:calc(100vh - 64px);width:auto;height:auto;object-fit:contain;box-shadow:0 18px 60px rgba(0,0,0,.35);cursor:default}
+.image-lightbox-close{position:absolute;top:18px;right:22px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:28px;line-height:1}
+@media(max-width:760px){.image-lightbox{padding:18px}.image-lightbox img{max-width:calc(100vw - 36px);max-height:calc(100vh - 36px)}.image-lightbox-close{top:10px;right:10px}}

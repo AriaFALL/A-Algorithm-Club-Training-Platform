@@ -537,6 +537,7 @@ def leaderboard(request):
 
 
 @api_login_required
+@transaction.atomic
 def bulk_approve(request):
     membership = membership_for(request)
     if not membership or not membership.is_admin:
