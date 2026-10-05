@@ -195,6 +195,20 @@ class RegressionTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Team.objects.filter(code='BAD').exists())
 
+    def test_admin_queue_is_pending_only_and_stats_are_current_week(self):
+        old_week = self.semester.weeks.filter(number__lt=self.week.number).order_by('-number').first()
+        self.assertIsNotNone(old_week)
+        old_submission, _ = self.submission(week=old_week)
+        self.assertEqual(self.review([old_submission.id]).status_code, 200)
+        current_submission, _ = self.submission(week=self.week)
+
+        response = self.client.get('/api/submissions?admin_queue=1')
+        self.assertEqual(response.status_code, 200, response.content)
+        queue_ids = {item['id'] for item in response.json()['submissions']}
+        self.assertIn(current_submission.id, queue_ids)
+        self.assertNotIn(old_submission.id, queue_ids)
+        self.assertEqual(response.json()['stats']['reviewedParts'], 0)
+
     def test_bad_legacy_dates_cannot_be_settled_or_archived(self):
         self.week.starts_at += timedelta(days=1)
         self.week.save(update_fields=['starts_at'])
