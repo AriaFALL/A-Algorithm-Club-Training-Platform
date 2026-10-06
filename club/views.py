@@ -420,8 +420,16 @@ def submissions(request):
             queryset = queryset.filter(member=membership)
         if not membership.is_admin:
             queryset = queryset.filter(Q(member=membership) | Q(visibility=Submission.VISIBILITY_TEAM, team__visibility_mode=Team.VISIBILITY_TEAM))
+        # The admin queue polls frequently. Keep that response focused on
+        # actionable work and bounded so old reviewed history cannot make the
+        # dashboard progressively slower as the team grows.
+        admin_queue = membership.is_admin and request.GET.get("admin_queue") == "1"
+        if admin_queue:
+            queryset = queryset.filter(parts__status=SubmissionPart.PENDING).distinct().order_by("-submitted_at")
         if week_id:
             queryset = queryset.filter(week_id=week_id)
+        if admin_queue:
+            queryset = queryset[:200]
         include_content = membership.is_admin or membership.team.visibility_mode == Team.VISIBILITY_TEAM
         payload = {'submissions': [serialize_submission(item, include_content or item.member_id == membership.id,
             parts=None if membership.is_admin or item.member_id == membership.id else
@@ -429,8 +437,12 @@ def submissions(request):
         if membership.is_admin:
             semester = active_semester(membership.team)
             week = active_week(semester) if semester else None
-            pending = SubmissionPart.objects.filter(submission__team=membership.team, status=SubmissionPart.PENDING).count()
-            reviewed = SubmissionPart.objects.filter(submission__team=membership.team, status__in=[SubmissionPart.APPROVED, SubmissionPart.REJECTED]).count()
+            stats_week = week or (semester.weeks.order_by("-number").first() if semester else None)
+            stats_scope = {"submission__team": membership.team}
+            if stats_week:
+                stats_scope["submission__week"] = stats_week
+            pending = SubmissionPart.objects.filter(status=SubmissionPart.PENDING, **stats_scope).count()
+            reviewed = SubmissionPart.objects.filter(status__in=[SubmissionPart.APPROVED, SubmissionPart.REJECTED], **stats_scope).count()
             members = list(membership.team.memberships.filter(is_active=True))
             member_count = len(members)
             current_scores, current_submissions = member_week_progress(members, week)

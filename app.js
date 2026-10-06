@@ -24,12 +24,9 @@ let arenaRequestVersion = 0;
 let membersRequestVersion = 0;
 let historyRequestVersion = 0;
 const leaderboardInFlight = new Map();
-let pulseCopy = {
-  4: {focus: '回看本周最有价值的一次题解', status: '已完成', tone: 'is-done'},
-  5: {focus: '整理一次复杂度分析', status: '已完成', tone: 'is-done'},
-  6: {focus: '完成第 3 次有效提交', status: '还剩 2 天', tone: 'is-warning'},
-  7: {focus: '提前选好下周第一道题', status: '即将开始', tone: 'is-next'},
-};
+let pulseCopy = {};
+let pulseStates = new Map();
+let pulseCurrentWeekNumber = null;
 document.addEventListener('click', async (event) => { if (event.target.id !== 'logoutButton') return; await clubApi.request('/api/auth/logout', {method:'POST'}); window.location.href = '/auth.html'; });
 const liveStyle = document.createElement('style'); liveStyle.textContent = '.my-submissions-live{margin-top:14px;padding:21px}.live-submission-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid #edf0ee}.live-submission-info{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}.live-submission-info strong{font-size:12px}.live-submission-info small{font-size:10px;color:var(--muted)}.submission-thumb{width:44px;height:44px;border-radius:7px;background:#eef7f5;display:grid;place-items:center;overflow:hidden;color:var(--teal);flex:none}.submission-thumb img{width:100%;height:100%;object-fit:cover}.live-submission-row .review-view{color:var(--teal-dark);font-size:11px;font-weight:700;white-space:nowrap}.upload-preview{width:80px;height:55px;object-fit:cover;border-radius:6px;margin-bottom:4px}.status-tag.rejected{color:#b35d55;background:#fbeceb}'; document.head.appendChild(liveStyle);
 const accessibilityStyle = document.createElement('style'); accessibilityStyle.textContent = '.toast{transition:transform .25s ease,opacity .25s ease}.search-box input:focus-visible{outline:2px solid var(--teal);outline-offset:2px}'; document.head.appendChild(accessibilityStyle);
@@ -43,13 +40,20 @@ function renderLeaderboard(mode='week', target='#leaderboardList') {
     el.innerHTML = '<div class="queue-empty">暂无排行榜数据</div>';
     return;
   }
-  el.innerHTML = rankingData[mode].map((row, index) => `
-    <div class="leader-row ${row[0] === '林同学' ? 'you' : ''}">
+  el.innerHTML = rankingData[mode].map((row, index) => {
+    const name = row.name ?? row[0];
+    const initial = row.initial ?? row[1] ?? name.slice(0, 1);
+    const score = row.score ?? row[2] ?? 0;
+    const submissions = row.submissions ?? row[3] ?? 0;
+    const isCurrent = Boolean(row.isCurrent ?? row[4]);
+    return `
+    <div class="leader-row ${isCurrent ? 'you' : ''}">
       <span class="leader-rank ${index < 3 ? 'top' : ''}">${index + 1}</span>
-      <span class="leader-member"><span class="leader-avatar">${row[1]}</span><span class="leader-name">${row[0]}${row[0] === '林同学' ? '（你）' : ''}</span></span>
-      <span class="leader-score">${row[2]}<small> 分</small></span>
-      <span class="leader-count">${row[3]} 次</span>
-    </div>`).join('');
+      <span class="leader-member"><span class="leader-avatar">${escapeHtml(initial)}</span><span class="leader-name">${escapeHtml(name)}${isCurrent ? '（你）' : ''}</span></span>
+      <span class="leader-score">${score}<small> 分</small></span>
+      <span class="leader-count">${submissions} 次</span>
+    </div>`;
+  }).join('');
 }
 
 function setupDemoPreview() {
@@ -67,7 +71,7 @@ function setupDemoPreview() {
   rankingData.week = [
     ['王同学', '王', 12, 5],
     ['李同学', '李', 10, 4],
-    ['林同学', '林', 7, 3],
+    ['林同学', '林', 7, 3, true],
     ['陈同学', '陈', 6, 3],
     ['周同学', '周', 4, 2]
   ];
@@ -148,7 +152,7 @@ function wirePulseAtlas() {
       item.classList.toggle('is-selected', selected);
       item.setAttribute('aria-selected', String(selected));
     });
-    const selected = pulseCopy[week.dataset.pulseWeek] || pulseCopy[6];
+    const selected = pulseCopy[week.dataset.pulseWeek] || pulseCopyForWeek(Number(week.dataset.pulseWeek));
     focus.textContent = selected.focus;
     status.textContent = selected.status;
     status.className = `pulse-warning ${selected.tone}`;
@@ -159,6 +163,18 @@ function wirePulseAtlas() {
     if ($(`.pulse-week[data-pulse-week="${current}"]`)?.classList.contains('is-current')) openModal();
     else setView('submissions');
   });
+}
+
+function pulseCopyForWeek(number) {
+  const explicit = pulseCopy[number];
+  if (explicit) return explicit;
+  const item = pulseStates.get(Number(number));
+  if (!item) return {focus: '等待真实数据', status: '数据加载中', tone: 'is-warning'};
+  if (item.qualified) return {focus: '本周任务已达标', status: '已达标', tone: 'is-done'};
+  if (item.isCurrent) return {focus: '完成本周训练目标', status: '进行中', tone: 'is-warning'};
+  if (item.number > pulseCurrentWeekNumber) return {focus: '等待本周开始', status: '即将开始', tone: 'is-next'};
+  if (item.closed) return {focus: '本周任务未达标', status: '未达标', tone: 'is-warning'};
+  return {focus: '等待真实数据', status: '数据加载中', tone: 'is-warning'};
 }
 
 function updatePulseCopy(nextCopy, currentWeek) {
@@ -216,6 +232,8 @@ function renderPulseWeeks(pulse = [], currentNumber) {
   const track = $('.pulse-track');
   if (!track || !pulse.length) return;
   const line = $('.pulse-line', track);
+  pulseCurrentWeekNumber = Number(currentNumber);
+  pulseStates = new Map(pulse.map((item) => [Number(item.number), item]));
   $$('.pulse-week', track).forEach((item) => item.remove());
   pulse.forEach((item) => {
     const button = document.createElement('button');
@@ -228,6 +246,7 @@ function renderPulseWeeks(pulse = [], currentNumber) {
     track.insertBefore(button, line || null);
   });
   wirePulseAtlas();
+  $(`.pulse-week[data-pulse-week="${currentNumber}"]`, track)?.click();
 }
 
 function applyLiveDashboardState(dashboard, submissions = []) {
@@ -247,22 +266,25 @@ function applyLiveDashboardState(dashboard, submissions = []) {
   const pendingLabels = [...new Set(pending.map((part) => part.kind === 'proof' ? '截图' : part.kind === 'logic' ? '写题逻辑' : 'Blog'))];
   const presentKinds = new Set(parts.map((part) => part.kind));
   const missingLabels = [['proof', '通过截图'], ['logic', '写题逻辑'], ['blog', 'Blog']].filter(([kind]) => !presentKinds.has(kind)).map(([, label]) => label);
-  const isComplete = scoreGap === 0 && submissionGap === 0;
+  const requireBoth = semester.requireBoth !== false;
+  const isComplete = requireBoth ? scoreGap === 0 && submissionGap === 0 : scoreGap === 0 || submissionGap === 0;
   const focus = isComplete
     ? '保持本周训练节拍，继续记录新题'
     : pendingLabels.length
       ? `等待审核：${pendingLabels.join('、')}`
-      : submissionGap > 0
+      : submissionGap > 0 && (requireBoth || scoreGap > 0)
         ? `完成第 ${submissionCount + 1} 次有效提交`
         : `补交${missingLabels[0] || '材料'}，再累积 ${scoreGap} 分`;
   const requirement = isComplete
     ? '本周目标已达成，可继续提交'
     : pendingLabels.length
       ? `审核中 · ${pendingLabels.join(' · ')}`
-      : submissionGap > 0
-        ? `还需 ${submissionGap} 次有效提交`
-      : missingLabels.length ? `可补交：${missingLabels.join(' · ')}` : `还差 ${scoreGap} 分`;
-  const status = isComplete ? '本周已达标' : week.closed ? '本周已截止' : scoreGap > 0 && submissionGap > 0 ? `还差 ${scoreGap} 分 · ${submissionGap} 次` : scoreGap > 0 ? `还差 ${scoreGap} 分` : submissionGap > 0 ? `还需 ${submissionGap} 次` : '等待审核';
+      : !requireBoth && scoreGap > 0 && submissionGap > 0
+        ? `还需 ${submissionGap} 次或 ${scoreGap} 分`
+        : submissionGap > 0
+          ? `还需 ${submissionGap} 次有效提交`
+        : missingLabels.length ? `可补交：${missingLabels.join(' · ')}` : `还差 ${scoreGap} 分`;
+  const status = isComplete ? '本周已达标' : week.closed ? '本周已截止' : requireBoth ? scoreGap > 0 && submissionGap > 0 ? `还差 ${scoreGap} 分 · ${submissionGap} 次` : scoreGap > 0 ? `还差 ${scoreGap} 分` : submissionGap > 0 ? `还需 ${submissionGap} 次` : '等待审核' : `还需 ${submissionGap} 次或 ${scoreGap} 分`;
   const tone = isComplete ? 'is-done' : week.closed ? 'is-warning' : 'is-warning';
   updatePulseCopy({[week.number]: {focus, status, tone}}, week.number);
   renderPulseWeeks(dashboard.pulse || [], week.number);
@@ -274,7 +296,7 @@ function applyLiveDashboardState(dashboard, submissions = []) {
   const stageFocusMeta = $('#stageFocusMeta');
   if (stageScore) stageScore.textContent = String(score).padStart(2, '0');
   if (stageScoreMax) stageScoreMax.textContent = `/${minScore}`;
-  if (stageCaption) stageCaption.textContent = isComplete ? '本周已达标' : `还差 ${scoreGap} 分达标`;
+  if (stageCaption) stageCaption.textContent = isComplete ? '本周已达标' : !requireBoth && submissionGap === 0 ? '提交次数已达标' : `还差 ${scoreGap} 分达标`;
   if (stageFocus) stageFocus.textContent = focus;
   if (stageFocusMeta) stageFocusMeta.textContent = requirement;
   const stageWeek = $('#stageWeek');
@@ -297,7 +319,7 @@ function applyLiveDashboardState(dashboard, submissions = []) {
   const submissionValue = $('.metric-card:nth-child(2) .metric-value');
   const submissionFoot = $('.metric-card:nth-child(2) .metric-foot span');
   if (featuredValue) featuredValue.innerHTML = `${score} <small>/ ${minScore} 分</small>`;
-  if (featuredFoot) featuredFoot.textContent = isComplete ? '本周已达标' : `还差 ${scoreGap} 分达标`;
+  if (featuredFoot) featuredFoot.textContent = isComplete ? '本周已达标' : !requireBoth && submissionGap === 0 ? '提交次数已达标' : `还差 ${scoreGap} 分达标`;
   if (submissionValue) submissionValue.innerHTML = `${submissionCount} <small>/ ${minSubmissions} 次</small>`;
   if (submissionFoot) submissionFoot.textContent = submissionGap ? `再完成 ${submissionGap} 次即可` : '本周次数已达标';
   const progress = $('.metric-card.featured .progress-track span');
@@ -523,7 +545,7 @@ async function loadAdminQueue({silent = false} = {}) {
   adminQueueAbortController = controller;
   const request = (async () => {
     try {
-      const response = await clubApi.request('/api/submissions', {signal: controller.signal});
+      const response = await clubApi.request('/api/submissions?admin_queue=1', {signal: controller.signal});
       if (requestVersion !== adminQueueRequestVersion) return;
       if (!response.ok) { list.innerHTML = '<div class="queue-empty">审核队列加载失败，请刷新重试</div>'; return; }
       const payload = await response.json();
@@ -932,7 +954,13 @@ async function loadLeaderboard(scope = 'week') {
       const response = await clubApi.request(`/api/leaderboard?scope=${scope}`);
       if (!response.ok) return false;
       const payload = await response.json();
-      rankingData[scope] = (payload.rows || []).slice(0, 5).map((row) => [row.name, row.name.slice(0, 1), row.score, row.submissions]);
+      rankingData[scope] = (payload.rows || []).slice(0, 5).map((row) => ({
+        name: row.name,
+        initial: row.name.slice(0, 1),
+        score: row.score,
+        submissions: row.submissions,
+        isCurrent: Boolean(row.isCurrent),
+      }));
       renderLeaderboard(scope, scope === 'week' ? '#leaderboardList' : '#leaderboardListFull');
       if (scope === 'week') {
         const current = (payload.rows || []).find((row) => row.isCurrent);
