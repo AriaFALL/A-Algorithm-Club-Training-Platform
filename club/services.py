@@ -14,8 +14,8 @@ def score_part(part):
     return {SubmissionPart.PROOF: semester.screenshot_points, SubmissionPart.LOGIC: semester.logic_points, SubmissionPart.BLOG: semester.blog_points}.get(part.kind, 0)
 
 
-def progress_rows(semester, week=None, member_ids=None, submission_ids=None):
-    """One definition of approved scores and accepted proof counts."""
+def progress_rows(semester, week=None, member_ids=None, submission_ids=None, *, by_week=False):
+    """Approved scores and proof counts keyed by member, or (week, member)."""
     submissions = Submission.objects.filter(semester=semester, is_valid=True)
     if week is not None:
         submissions = submissions.filter(week=week)
@@ -23,11 +23,16 @@ def progress_rows(semester, week=None, member_ids=None, submission_ids=None):
         submissions = submissions.filter(member_id__in=member_ids)
     if submission_ids is not None:
         submissions = submissions.filter(pk__in=submission_ids)
-    scores = dict(SubmissionPart.objects.filter(submission__in=submissions, status=SubmissionPart.APPROVED)
-                  .values('submission__member_id').annotate(total=models.Sum('points_awarded'))
-                  .values_list('submission__member_id', 'total'))
-    counts = dict(submissions.filter(parts__kind=SubmissionPart.PROOF, parts__status=SubmissionPart.APPROVED)
-                  .values('member_id').annotate(total=models.Count('id', distinct=True)).values_list('member_id', 'total'))
+    fields = ['week_id', 'member_id'] if by_week else ['member_id']
+    score_fields = ['submission__' + field for field in fields]
+    score_rows = (SubmissionPart.objects.filter(submission__in=submissions, status=SubmissionPart.APPROVED)
+                  .order_by().values(*score_fields).annotate(total=models.Sum('points_awarded'))
+                  .values_list(*score_fields, 'total'))
+    count_rows = (submissions.filter(parts__kind=SubmissionPart.PROOF, parts__status=SubmissionPart.APPROVED)
+                  .order_by().values(*fields).annotate(total=models.Count('id', distinct=True))
+                  .values_list(*fields, 'total'))
+    scores = {(row[:-1] if by_week else row[0]): row[-1] for row in score_rows}
+    counts = {(row[:-1] if by_week else row[0]): row[-1] for row in count_rows}
     return scores, counts
 
 
@@ -45,13 +50,19 @@ def refresh_totals(semester):
     """Caller holds the semester lock, shared by review, settlement and archive."""
     if semester.archived_at:
         return
-    scores, counts = progress_rows(semester)
+    week_scores, week_counts = progress_rows(semester, by_week=True)
+    scores, counts = defaultdict(int), defaultdict(int)
+    # Include open weeks in semester totals, but only closed weeks in qualification.
+    for (_, member_id), score in week_scores.items():
+        scores[member_id] += score
+    for (_, member_id), count in week_counts.items():
+        counts[member_id] += count
     qualified_counts = defaultdict(int)
     members = list(semester.team.memberships.all())
     for week in semester.weeks.filter(is_closed=True):
-        week_scores, week_counts = progress_rows(semester, week)
         for member in members:
-            qualified_counts[member.id] += int(qualified(week_scores.get(member.id, 0), week_counts.get(member.id, 0), week))
+            key = (week.id, member.id)
+            qualified_counts[member.id] += int(qualified(week_scores.get(key, 0), week_counts.get(key, 0), week))
     # The caller's semester lock serializes this upsert with reviews and archive.
     SemesterMemberTotal.objects.bulk_create([
         SemesterMemberTotal(
