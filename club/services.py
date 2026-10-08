@@ -52,11 +52,15 @@ def refresh_totals(semester):
         week_scores, week_counts = progress_rows(semester, week)
         for member in members:
             qualified_counts[member.id] += int(qualified(week_scores.get(member.id, 0), week_counts.get(member.id, 0), week))
-    for member in members:
-        SemesterMemberTotal.objects.update_or_create(semester=semester, member=member, defaults={
-            'display_name': member.display_name, 'total_score': scores.get(member.id, 0),
-            'total_submissions': counts.get(member.id, 0), 'qualified_weeks': qualified_counts[member.id],
-        })
+    # The caller's semester lock serializes this upsert with reviews and archive.
+    SemesterMemberTotal.objects.bulk_create([
+        SemesterMemberTotal(
+            semester=semester, member=member, display_name=member.display_name,
+            total_score=scores.get(member.id, 0), total_submissions=counts.get(member.id, 0),
+            qualified_weeks=qualified_counts[member.id],
+        ) for member in members
+    ], update_conflicts=True, unique_fields=['semester', 'member'],
+       update_fields=['display_name', 'total_score', 'total_submissions', 'qualified_weeks', 'finalized_at'])
 
 
 def normalize_ids(values):
@@ -128,13 +132,21 @@ def validate_week_dates(semester):
 
 def build_weeks(semester):
     """Create missing weeks only; never silently rewrite historical records."""
+    weeks = list(semester.weeks.order_by('number'))
+    existing_numbers = {week.number for week in weeks}
+    missing = []
     number = 1
     start, end = week_bounds(semester, number)
     while timezone.localdate(start) <= semester.ends_on:
-        Week.objects.get_or_create(semester=semester, number=number, defaults={'starts_at': start, 'ends_at': end})
+        if number not in existing_numbers:
+            missing.append(Week(semester=semester, number=number, starts_at=start, ends_at=end))
         number += 1
         start, end = week_bounds(semester, number)
-    return list(semester.weeks.order_by('number'))
+    if missing:
+        # Concurrent page loads can discover the same missing weeks.
+        Week.objects.bulk_create(missing, ignore_conflicts=True)
+        return list(semester.weeks.order_by('number'))
+    return weeks
 
 
 @transaction.atomic

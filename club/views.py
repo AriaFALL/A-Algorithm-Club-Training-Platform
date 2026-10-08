@@ -782,4 +782,5 @@ def semesters(request):
     if not membership:
         return api_error('未加入当前团队', 403)
     return JsonResponse({'semesters': [{'id': item.id, 'name': item.name, 'archived': bool(item.archived_at),
-        'weeks': list(item.weeks.values_list('number', flat=True))} for item in membership.team.semesters.all()]})
+        'weeks': [week.number for week in item.weeks.all()]}
+        for item in membership.team.semesters.prefetch_related('weeks')]})

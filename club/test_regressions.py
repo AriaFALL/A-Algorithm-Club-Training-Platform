@@ -267,6 +267,15 @@ class ConcurrentReviewTests(TransactionTestCase):
         self.assertEqual(self.part.review_logs.count(), 1)
         self.assertEqual(SemesterMemberTotal.objects.get(semester=self.semester, member=self.member).total_score, 1)
 
+    def test_concurrent_week_creation_is_repeatable(self):
+        self.semester.ends_on += timedelta(days=60)
+        self.semester.save()
+        def build():
+            return [week.pk for week in build_weeks(self.semester)]
+        results = self.run_concurrently([build, build])
+        self.assertEqual(results[0], results[1])
+        self.assertEqual(len(results[0]), self.semester.weeks.count())
+
     def test_review_and_archive_have_a_consistent_snapshot(self):
         def review():
             try:
