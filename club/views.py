@@ -114,15 +114,17 @@ def leaderboard_rows_for(team, semester, week=None):
     return rows
 
 
-def member_streak(member, semester, through_week):
+def member_streak(member, semester, through_week, *, progress=None):
     weeks = list(semester.weeks.filter(number__lte=through_week.number).order_by("-number"))
+    scores, counts = progress if progress is not None else progress_rows(semester, member_ids=[member.id], by_week=True)
     streak = 0
     for week in weeks:
         # The open week is still in progress and cannot be counted as a
         # completed streak until the scheduled settlement task closes it.
         if week.id == through_week.id and not week.is_closed:
             continue
-        if not member_week_qualified(member, week):
+        key = (week.id, member.id)
+        if not qualified(scores.get(key, 0), counts.get(key, 0), week):
             break
         streak += 1
     return streak
@@ -332,12 +334,14 @@ def dashboard(request):
     now = timezone.now()
     remaining_seconds = max(0, int((week.ends_at - now).total_seconds())) if not week.is_closed else 0
     pulse_weeks = []
+    history_scores, history_counts = progress_rows(semester, member_ids=[membership.id], by_week=True)
     for item in semester.weeks.filter(number__gte=max(1, week.number - 2), number__lte=week.number + 1).order_by("number"):
         pulse_weeks.append({
             "number": item.number,
             "closed": item.is_closed,
             "isCurrent": item.id == week.id,
-            "qualified": member_week_qualified(membership, item) if item.is_closed else False,
+            "qualified": qualified(history_scores.get((item.id, membership.id), 0),
+                                   history_counts.get((item.id, membership.id), 0), item) if item.is_closed else False,
         })
     return JsonResponse({
         "team": {"id": membership.team_id, "name": membership.team.name},
@@ -346,7 +350,7 @@ def dashboard(request):
         "score": score,
         "submissions": count,
         "visibility": membership.team.visibility_mode,
-        "stats": {"rank": current_rank, "previousRank": previous_rank, "memberCount": len(rows), "streakWeeks": member_streak(membership, semester, week), "pendingParts": pending_parts},
+        "stats": {"rank": current_rank, "previousRank": previous_rank, "memberCount": len(rows), "streakWeeks": member_streak(membership, semester, week, progress=(history_scores, history_counts)), "pendingParts": pending_parts},
         "pulse": pulse_weeks,
     })
 
@@ -782,4 +786,5 @@ def semesters(request):
     if not membership:
         return api_error('未加入当前团队', 403)
     return JsonResponse({'semesters': [{'id': item.id, 'name': item.name, 'archived': bool(item.archived_at),
-        'weeks': list(item.weeks.values_list('number', flat=True))} for item in membership.team.semesters.all()]})
+        'weeks': [week.number for week in item.weeks.all()]}
+        for item in membership.team.semesters.prefetch_related('weeks')]})
