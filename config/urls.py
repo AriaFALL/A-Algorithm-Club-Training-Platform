@@ -3,7 +3,7 @@ from pathlib import Path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseRedirect
 from django.middleware.csrf import get_token
 from django.urls import include, path
 
@@ -44,9 +44,12 @@ urlpatterns = [
     path("register.html", lambda request: frontend_asset(request, "register.html")),
     path("team-select.html", lambda request: frontend_asset(request, "team-select.html")),
     path("team-select.js", lambda request: frontend_asset(request, "team-select.js")),
-    path("create-team.html", lambda request: frontend_asset(request, "create-team.html")),
+    path("manage.html", lambda request: HttpResponseRedirect("/?view=admin")),
+    path("workbench.js", lambda request: frontend_asset(request, "workbench.js")),
+    path("create-team.html", lambda request: HttpResponseRedirect("/?view=admin")),
     path("join-team.html", lambda request: frontend_asset(request, "join-team.html")),
     path("styles.css", lambda request: frontend_asset(request, "styles.css")),
+    path("community.js", lambda request: frontend_asset(request, "community.js")),
     path("app.js", lambda request: frontend_asset(request, "app.js")),
     path("auth.js", lambda request: frontend_asset(request, "auth.js")),
     path("api.js", lambda request: frontend_asset(request, "api.js")),

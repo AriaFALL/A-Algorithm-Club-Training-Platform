@@ -8,15 +8,9 @@ from django.utils import timezone
 
 
 class Team(models.Model):
-    VISIBILITY_TEAM = "team"
-    VISIBILITY_ADMIN = "admin"
-    VISIBILITY_CHOICES = [(VISIBILITY_TEAM, "团队成员可见"), (VISIBILITY_ADMIN, "仅管理员可见")]
-
     name = models.CharField(max_length=80)
     code = models.CharField(max_length=32, unique=True)
     join_password_hash = models.CharField(max_length=128)
-    admin_invite_hash = models.CharField(max_length=128, blank=True, default="")
-    visibility_mode = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default=VISIBILITY_TEAM)
     cleanup_delay_days = models.PositiveIntegerField(default=30, validators=[MinValueValidator(1)])
     created_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="created_teams")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -28,8 +22,8 @@ class Team(models.Model):
 class TeamMembership(models.Model):
     MEMBER = "member"
     ADMIN = "admin"
-    OWNER = "owner"
-    ROLE_CHOICES = [(MEMBER, "成员"), (ADMIN, "管理员"), (OWNER, "创建者")]
+    OWNER = ADMIN  # Compatibility for internal callers; no separate owner role.
+    ROLE_CHOICES = [(MEMBER, "普通用户"), (ADMIN, "团队管理用户")]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="team_memberships")
     team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="memberships")
@@ -39,12 +33,14 @@ class TeamMembership(models.Model):
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["team", "display_name"], name="unique_team_display_name")]
+        constraints = [models.UniqueConstraint(fields=["team", "display_name"], name="unique_team_display_name"),
+                       models.UniqueConstraint(fields=['team', 'user'], name='unique_team_user'),
+                       models.CheckConstraint(condition=models.Q(role__in=['member', 'admin']), name='valid_membership_role')]
         ordering = ["display_name"]
 
     @property
     def is_admin(self):
-        return self.role in {self.ADMIN, self.OWNER}
+        return self.role == self.ADMIN
 
 
 class Semester(models.Model):
@@ -65,11 +61,6 @@ class Semester(models.Model):
     class Meta:
         ordering = ["-starts_on"]
 
-    def save(self, *args, **kwargs):
-        if self.cleanup_at is None:
-            cleanup_day = self.ends_on + timedelta(days=self.team.cleanup_delay_days if self.team_id else 30)
-            self.cleanup_at = timezone.make_aware(datetime.combine(cleanup_day, time.min))
-        super().save(*args, **kwargs)
 
 
 class Week(models.Model):
@@ -101,21 +92,17 @@ class Week(models.Model):
 
 
 class Submission(models.Model):
-    VISIBILITY_TEAM = "team"
-    VISIBILITY_PRIVATE = "private"
-    VISIBILITY_CHOICES = [
-        (VISIBILITY_TEAM, "团队成员可见"),
-        (VISIBILITY_PRIVATE, "仅管理员和本人可见"),
-    ]
-
     team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="submissions")
     member = models.ForeignKey(TeamMembership, on_delete=models.CASCADE, related_name="submissions")
     semester = models.ForeignKey(Semester, on_delete=models.CASCADE, related_name="submissions")
     week = models.ForeignKey(Week, on_delete=models.CASCADE, related_name="submissions")
     submitted_at = models.DateTimeField(auto_now_add=True)
+    record_date = models.DateField(default=timezone.localdate)
     is_valid = models.BooleanField(default=True)
-    visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default=VISIBILITY_TEAM)
     cleaned_at = models.DateTimeField(null=True, blank=True)
+    problem = models.ForeignKey('Problem', null=True, on_delete=models.PROTECT, related_name='submissions')
+    version = models.PositiveIntegerField(default=1)
+    rejection_note = models.CharField(max_length=500, blank=True)
 
     class Meta:
         ordering = ["-submitted_at"]
@@ -184,21 +171,74 @@ class CleanupJob(models.Model):
     pending_files = models.JSONField(default=list, blank=True)
 
 
-class Arena(models.Model):
-    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="arenas")
-    title = models.CharField(max_length=120)
-    description = models.TextField(blank=True)
-    samples = models.TextField(blank=True)
-    judge_script = models.FileField(upload_to="arena/scripts/%Y/%m/", blank=True)
-    opens_at = models.DateTimeField()
-    closes_at = models.DateTimeField()
-    is_published = models.BooleanField(default=False)
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_arenas")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+class Problem(models.Model):
+    identity = models.CharField(max_length=1100, unique=True)
+    url = models.URLField(max_length=1000)
+    title = models.CharField(max_length=200, blank=True)
+    status = models.CharField('解析状态', max_length=16, default='pending', choices=[('pending', '待解析'), ('running', '解析中'), ('success', '成功'), ('failed', '待处理'), ('manual', '人工补填'), ('cancelled', '任务已移除')])
+    mode = models.CharField(max_length=10, default='smart')
+    generation = models.PositiveIntegerField(default=0)
+    error = models.CharField(max_length=500, blank=True)
+    requested_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        ordering = ["-opens_at"]
+        verbose_name = '题目与题名待处理'
+        verbose_name_plural = '题目与题名待处理'
+
+    def __str__(self):
+        return self.title or self.url
+
+
+class ParserSettings(models.Model):
+    MODES = [('auto', '自动解析'), ('ai', 'AI解析'), ('smart', '智能解析')]
+    mode = models.CharField(max_length=10, choices=MODES, default='smart')
+    enabled = models.BooleanField(default=True)
+    api_protocol = models.CharField('调用协议', max_length=16, default='chat', choices=[('chat', 'Chat Completions'), ('responses', 'Responses 联网')])
+    base_url = models.URLField(max_length=500, blank=True)
+    model = models.CharField(max_length=200, blank=True)
+    encrypted_key = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = '全站题名解析配置'
+        verbose_name_plural = '全站题名解析配置'
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return '全站题名解析配置'
+
+
+class SubmissionLike(models.Model):
+    submission = models.ForeignKey(Submission, on_delete=models.CASCADE, related_name='likes')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['submission', 'user'], name='unique_submission_like')]
+
+
+class SubmissionReport(models.Model):
+    submission = models.ForeignKey(Submission, on_delete=models.CASCADE, related_name='reports')
+    version = models.PositiveIntegerField()
+    reporter = models.ForeignKey(User, on_delete=models.CASCADE)
+    status = models.CharField(max_length=12, default='pending', choices=[('pending', '待处理'), ('dismissed', '已驳回'), ('rejected', '已退回')])
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='resolved_reports')
+    note = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['submission', 'version', 'reporter'], name='unique_submission_report')]
+
+
+class FileDeletion(models.Model):
+    name = models.CharField(max_length=1000)
+    error = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        verbose_name = '待删除文件清单'
+        verbose_name_plural = '待删除文件清单'
 
 
 def create_internal_username(team_code, display_name):

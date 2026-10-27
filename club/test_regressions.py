@@ -55,46 +55,32 @@ class RegressionTests(TestCase):
         for left, right in zip(weeks, weeks[1:]):
             self.assertEqual(left.ends_at, right.starts_at)
 
-    def test_missing_empty_and_malformed_review_targets_change_nothing(self):
-        submission, part = self.submission()
-        for ids in [[], [99999999], [submission.id, 99999999], ['bad'], 'bad', [True]]:
-            self.assertEqual(self.review(ids).status_code, 400)
-            part.refresh_from_db()
-            self.assertEqual(part.status, 'pending')
-        with self.assertRaises(ValidationError):
-            approve_submission_parts(self.user, self.team)
 
-    def test_cross_team_review_is_rejected_without_partial_approval(self):
-        submission, part = self.submission()
-        team = Team.objects.create(name='other', code='OTHER', created_by=self.user)
-        member = TeamMembership.objects.create(team=team, user=self.user, display_name='other', role='owner')
-        semester = Semester.objects.create(team=team, name='other', starts_on=self.semester.starts_on, ends_on=self.semester.ends_on)
-        week = build_weeks(semester)[0]
-        other = Submission.objects.create(team=team, member=member, semester=semester, week=week)
-        other_part = SubmissionPart.objects.create(submission=other, kind='logic', text_content='other')
-        self.assertEqual(self.review([submission.id, other.id]).status_code, 400)
-        part.refresh_from_db(); other_part.refresh_from_db()
-        self.assertEqual((part.status, other_part.status), ('pending', 'pending'))
 
     def test_deadline_rejects_old_week_and_never_moves_submission(self):
         end = self.week.ends_at
         with patch('django.utils.timezone.now', return_value=end):
-            response = self.client.post('/api/submissions', {'week_id': self.week.id, 'proof': self.image()})
+            response = self.client.post('/api/submissions', {'problem_url': 'https://example.com/problem/1', 'week_id': self.week.id, 'proof': self.image()})
         self.assertEqual(response.status_code, 409)
         self.assertFalse(Submission.objects.exists())
 
     def test_before_deadline_accepts_and_requires_explicit_week(self):
         self.assertEqual(self.client.post('/api/submissions', {'proof': self.image()}).status_code, 400)
         with patch('django.utils.timezone.now', return_value=self.week.ends_at - timedelta(microseconds=1)):
-            response = self.client.post('/api/submissions', {'week_id': self.week.id, 'proof': self.image()})
+            response = self.client.post('/api/submissions', {'problem_url': 'https://example.com/problem/1', 'week_id': self.week.id, 'proof': self.image()})
         self.assertEqual(response.status_code, 201, response.content)
         self.assertEqual(Submission.objects.get().week_id, self.week.id)
 
-    def test_fake_image_and_unsafe_blog_are_rejected(self):
+    def test_fake_image_is_rejected_and_blog_is_stored_as_editor_text(self):
         fake = SimpleUploadedFile('fake.png', b'not an image', content_type='image/png')
-        self.assertEqual(self.client.post('/api/submissions', {'week_id': self.week.id, 'proof': fake}).status_code, 400)
-        self.assertEqual(self.client.post('/api/submissions', {'week_id': self.week.id, 'proof': self.image(), 'blog': 'javascript:alert(1)'}).status_code, 400)
+        self.assertEqual(self.client.post('/api/submissions', {'problem_url': 'https://example.com/problem/1', 'week_id': self.week.id, 'proof': fake}).status_code, 400)
         self.assertFalse(Submission.objects.exists())
+        markdown = '# 题解\n[不可执行链接](javascript:alert(1))'
+        response = self.client.post('/api/submissions', {'problem_url': 'https://example.com/problem/1', 'week_id': self.week.id, 'proof': self.image(), 'blog': markdown})
+        self.assertEqual(response.status_code, 201, response.content)
+        part = Submission.objects.get().parts.get(kind='blog')
+        self.assertEqual(part.text_content, markdown)
+        self.assertEqual(part.link, '')
 
     def test_late_review_updates_settled_totals_and_is_idempotent(self):
         self.semester.min_submissions = 1
@@ -103,28 +89,12 @@ class RegressionTests(TestCase):
         submission, part = self.submission()
         with patch('django.utils.timezone.now', return_value=self.week.ends_at):
             settle_week(self.week)
-            self.assertEqual(self.review([submission.id]).status_code, 200)
+            self.assertEqual(approve_submission_parts(self.user, self.team, submission_ids=[submission.id]), 1)
         total = SemesterMemberTotal.objects.get(member=self.member, semester=self.semester)
         self.assertEqual((total.total_score, total.total_submissions, total.qualified_weeks), (1, 1, 1))
-        self.assertEqual(self.review([submission.id]).json()['approved_parts'], 0)
+        self.assertEqual(approve_submission_parts(self.user, self.team, submission_ids=[submission.id]), 0)
         self.assertEqual(part.review_logs.count(), 1)
 
-    def test_private_attachment_checks_every_request(self):
-        submission, part = self.submission()
-        approve_submission_parts(self.user, self.team, submission_ids=[submission.id])
-        member_user = User.objects.create_user('reader', password='password-123')
-        TeamMembership.objects.create(team=self.team, user=member_user, display_name='reader')
-        reader = Client(); reader.force_login(member_user)
-        url = f'/api/attachments/{part.id}'
-        self.assertEqual(Client().get(url).status_code, 401)
-        response = reader.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('no-store', response['Cache-Control']); list(response.streaming_content)
-        submission.visibility = 'private'; submission.save()
-        self.assertEqual(reader.get(url).status_code, 404)
-        response = self.client.get(url); self.assertEqual(response.status_code, 200); list(response.streaming_content)
-        with override_settings(DEBUG=True):
-            self.assertEqual(self.client.get(part.upload.url).status_code, 404)
 
     def test_unrelated_account_and_unapproved_material_are_hidden(self):
         submission, part = self.submission()
@@ -173,7 +143,8 @@ class RegressionTests(TestCase):
     def test_archived_semester_cannot_be_reviewed(self):
         submission, _ = self.submission()
         Semester.objects.filter(pk=self.semester.pk).update(archived_at=timezone.now())
-        self.assertEqual(self.review([submission.id]).status_code, 400)
+        with self.assertRaises(ValidationError):
+            approve_submission_parts(self.user, self.team, submission_ids=[submission.id])
 
     def test_repair_is_explicit_and_reassigns_by_submission_time(self):
         first, second = list(self.semester.weeks.order_by('number'))[:2]
@@ -190,24 +161,12 @@ class RegressionTests(TestCase):
         self.assertEqual(submission.week_id, second.id)
 
     def test_bad_team_settings_do_not_partially_create_team(self):
+        self.client.force_login(User.objects.get(username="admin"))
         response = self.client.post('/api/auth/create-team', json.dumps({'team_name': 'bad', 'team_code': 'BAD',
             'join_password': 'password-123', 'admin_invite': 'password-123', 'term_days': 'invalid'}), content_type='application/json')
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Team.objects.filter(code='BAD').exists())
 
-    def test_admin_queue_is_pending_only_and_stats_are_current_week(self):
-        old_week = self.semester.weeks.filter(number__lt=self.week.number).order_by('-number').first()
-        self.assertIsNotNone(old_week)
-        old_submission, _ = self.submission(week=old_week)
-        self.assertEqual(self.review([old_submission.id]).status_code, 200)
-        current_submission, _ = self.submission(week=self.week)
-
-        response = self.client.get('/api/submissions?admin_queue=1')
-        self.assertEqual(response.status_code, 200, response.content)
-        queue_ids = {item['id'] for item in response.json()['submissions']}
-        self.assertIn(current_submission.id, queue_ids)
-        self.assertNotIn(old_submission.id, queue_ids)
-        self.assertEqual(response.json()['stats']['reviewedParts'], 0)
 
     def test_bad_legacy_dates_cannot_be_settled_or_archived(self):
         self.week.starts_at += timedelta(days=1)

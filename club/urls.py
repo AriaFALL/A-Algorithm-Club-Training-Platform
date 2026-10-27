@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import daily_views, views, community_views as community, management_views as management
 
 urlpatterns = [
     path("semesters", views.semesters),
@@ -14,14 +14,32 @@ urlpatterns = [
     path("team/select", views.select_team),
     path("me", views.me),
     path("dashboard", views.dashboard),
+    path("daily-challenges", daily_views.daily_links),
     path("members", views.members),
     path("members/<int:member_id>/history", views.member_history),
     path("submissions", views.submissions),
-    path("showcase", views.showcase),
+    path("showcase", community.showcase),
+    path("problems/<int:problem_id>/submissions", community.problem_submissions),
+    path("submissions/<int:submission_id>/resubmit", views.submissions),
+    path("submissions/<int:submission_id>/edit", views.submissions, {"edit": True}),
+    path("submissions/<int:submission_id>", views.delete_own_submission),
+    path("submissions/<int:submission_id>/like", community.reaction, {"kind": "like"}),
+    path("submissions/<int:submission_id>/report", community.reaction, {"kind": "report"}),
+    path("management", management.workspace),
+    path("management/parser", management.parser_settings),
+    path("management/parser/test", management.test_parser),
+    path("management/problems", management.problem_queue),
+    path("management/problems/<int:problem_id>", management.update_problem),
+    path("management/problems/<int:problem_id>/retry", management.retry_problem),
+    path("management/teams/<int:team_id>/members/<int:member_id>", management.kick_member),
+    path("management/teams/<int:team_id>/settings", management.team_configuration),
+    path("management/teams/<int:team_id>/cleanup", management.team_cleanup_schedule),
+    path("management/managers", management.assign_manager),
+    path("management/teams/<int:team_id>", management.delete_team),
+    path("submissions/<int:submission_id>/reject", community.resolve_report, {"direct": True}),
+    path("admin/reports", community.report_queue),
+    path("admin/reports/<int:submission_id>/resolve", community.resolve_report),
     path("leaderboard", views.leaderboard),
-    path("admin/submissions/bulk-approve", views.bulk_approve),
     path("admin/team-settings", views.team_settings),
-    path("arena", views.arena),
-    path("admin/arena", views.arena_admin),
     path("export", views.export_xlsx),
 ]

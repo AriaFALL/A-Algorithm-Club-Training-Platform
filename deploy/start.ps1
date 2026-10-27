@@ -9,5 +9,11 @@ $env:COMPOSE_DOCKER_CLI_BUILD = "0"
 # Disable it explicitly to avoid Docker Desktop's shared-session-key error.
 $env:COMPOSE_BAKE = "false"
 
+docker compose -p club-platform stop worker beat
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 docker compose -p club-platform up --build -d
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+# Refresh the upstream address when the web container was recreated.
+docker compose -p club-platform restart nginx
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 docker compose -p club-platform ps
