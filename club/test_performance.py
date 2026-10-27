@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.contrib.auth.models import User
 from django.db import connection, transaction
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
@@ -41,7 +42,7 @@ class QueryEfficiencyTests(TestCase):
 
     def test_forty_member_totals_update_in_bounded_queries(self):
         TeamMembership.objects.bulk_create([
-            TeamMembership(team=self.team, user=self.user, display_name=f'Member {i}', is_active=i != 0)
+            TeamMembership(team=self.team, user=User.objects.create_user(username=f"perf-{i}"), display_name=f'Member {i}', is_active=i != 0)
             for i in range(39)
         ])
         week = self.semester.weeks.first()
@@ -97,7 +98,7 @@ class QueryEfficiencyTests(TestCase):
 
     def test_weekly_aggregation_matches_individual_queries_and_filters(self):
         weeks = list(self.semester.weeks.all())[:3]
-        other = TeamMembership.objects.create(team=self.team, user=self.user, display_name='Other')
+        other = TeamMembership.objects.create(team=self.team, user=User.objects.create_user(username='perf-other'), display_name='Other')
         selected = []
         for week in weeks:
             for member in (self.member, other):
@@ -166,6 +167,6 @@ class QueryEfficiencyTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload['stats']['streakWeeks'], current.number - 1)
-        for pulse in payload['pulse']:
-            week = self.semester.weeks.get(number=pulse['number'])
-            self.assertEqual(pulse['qualified'], week.is_closed and qualified(0, 0, week))
+        self.assertEqual(len(payload['pulse']), 21)
+        self.assertEqual(payload['streakDays'], 0)
+        self.assertTrue(all(not day['submitted'] for day in payload['pulse']))

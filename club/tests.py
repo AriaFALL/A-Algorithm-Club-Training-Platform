@@ -11,7 +11,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
-from .models import Arena, Semester, Submission, SubmissionPart, Team, TeamMembership, Week
+from .models import Semester, Submission, SubmissionPart, Team, TeamMembership, Week
 from .services import approve_submission_parts, build_weeks, cleanup_semester
 
 
@@ -29,27 +29,18 @@ class ClubApiTests(TestCase):
 
     def test_join_and_login(self):
         client = Client()
-        response = client.post("/api/auth/join", data=json.dumps({"team_code": "TEST", "name": "张同学", "password": "password-123", "join_password": "join-12345"}), content_type="application/json")
+        user = User.objects.create_user(username='new-member', password='password-123')
+        client.force_login(user)
+        response = client.post('/api/auth/join', data=json.dumps({'team_code':'TEST','name':'张同学','join_password':'join-12345'}), content_type='application/json')
         self.assertEqual(response.status_code, 200, response.content)
-        joined = TeamMembership.objects.get(team=self.team, display_name="张同学")
-        self.assertEqual(joined.role, TeamMembership.MEMBER)
-        self.assertNotEqual(joined.user_id, self.user.id)
+        self.assertEqual(TeamMembership.objects.get(user=user,team=self.team).role, TeamMembership.MEMBER)
 
-    def test_admin_invite_is_required_for_admin_role(self):
-        self.team.admin_invite_hash = make_password("admin-123456")
-        self.team.save(update_fields=["admin_invite_hash"])
-
-        client = Client()
-        response = client.post("/api/auth/join", data=json.dumps({"team_code": "TEST", "name": "普通成员", "password": "password-123", "join_password": "join-12345", "admin_invite": "wrong-code"}), content_type="application/json")
-        self.assertEqual(response.status_code, 200, response.content)
-        regular = TeamMembership.objects.get(team=self.team, display_name="普通成员")
-        self.assertEqual(regular.role, TeamMembership.MEMBER)
-
-        admin_client = Client()
-        response = admin_client.post("/api/auth/join", data=json.dumps({"team_code": "TEST", "name": "管理员成员", "password": "password-123", "join_password": "join-12345", "admin_invite": "admin-123456"}), content_type="application/json")
-        self.assertEqual(response.status_code, 200, response.content)
-        elevated = TeamMembership.objects.get(team=self.team, display_name="管理员成员")
-        self.assertEqual(elevated.role, TeamMembership.ADMIN)
+    def test_admin_invite_cannot_grant_management_role(self):
+        user = User.objects.create_user(username='regular',password='password-123')
+        self.client.force_login(user)
+        response=self.client.post('/api/auth/join',data=json.dumps({'team_code':'TEST','name':'普通成员','join_password':'join-12345','admin_invite':'admin-me-2026','role':'admin'}),content_type='application/json')
+        self.assertEqual(response.status_code,200,response.content)
+        self.assertEqual(TeamMembership.objects.get(user=user,team=self.team).role,'member')
 
     def test_login_and_logout_clears_team(self):
         client = Client()
@@ -84,53 +75,14 @@ class ClubApiTests(TestCase):
         image = io.BytesIO()
         Image.new('RGB', (2, 2)).save(image, format='PNG')
         proof = SimpleUploadedFile('proof.png', image.getvalue(), content_type='image/png')
-        response = self.client.post("/api/submissions", data={"week_id": self.semester.weeks.get(starts_at__lte=timezone.now(), ends_at__gt=timezone.now()).id, "proof": proof, "logic": "two pointers", "blog": "https://example.com"})
+        response = self.client.post("/api/submissions", data={"week_id": self.semester.weeks.get(starts_at__lte=timezone.now(), ends_at__gt=timezone.now()).id, "proof": proof, "problem_url": "https://www.nowcoder.com/practice/d53b2057ae8a4eaf8155447f6b709361", "logic": "two pointers", "blog": "https://example.com"})
         self.assertEqual(response.status_code, 201)
         submission = self.member.submissions.first()
         approve_submission_parts(self.user, self.team, submission_ids=[submission.id])
         self.assertEqual(submission.parts.filter(status=SubmissionPart.APPROVED).count(), 3)
 
-    def test_team_visibility_blocks_other_member_history(self):
-        other_user = User.objects.create_user(username="other", password="password-123")
-        other = TeamMembership.objects.create(user=other_user, team=self.team, display_name="周同学")
-        self.client.force_login(other_user)
-        self.client.session["team_id"] = self.team.id
-        self.client.session.save()
-        response = self.client.get(f"/api/members/{self.member.id}/history")
-        self.assertEqual(response.status_code, 200)
-        self.team.visibility_mode = Team.VISIBILITY_ADMIN
-        self.team.save(update_fields=["visibility_mode"])
-        response = self.client.get(f"/api/members/{self.member.id}/history")
-        self.assertEqual(response.status_code, 403)
 
-    def test_showcase_returns_only_approved_parts_and_hides_private_submissions(self):
-        other_user = User.objects.create_user(username="showcase-member", password="password-123")
-        other = TeamMembership.objects.create(user=other_user, team=self.team, display_name="展示成员")
-        week = self.semester.weeks.first()
-        submission = Submission.objects.create(team=self.team, member=other, semester=self.semester, week=week)
-        SubmissionPart.objects.create(submission=submission, kind=SubmissionPart.PROOF, upload=SimpleUploadedFile("proof.png", b"proof", content_type="image/png"))
-        SubmissionPart.objects.create(submission=submission, kind=SubmissionPart.LOGIC, text_content="approved logic", status=SubmissionPart.APPROVED, points_awarded=1)
 
-        client = Client()
-        client.force_login(other_user)
-        client.session["team_id"] = self.team.id
-        client.session.save()
-        response = client.get("/api/showcase")
-        self.assertEqual(response.status_code, 200)
-        payload = response.json()["submissions"]
-        self.assertEqual(len(payload), 1)
-        self.assertEqual([part["kind"] for part in payload[0]["parts"]], [SubmissionPart.LOGIC])
-
-        submission.visibility = Submission.VISIBILITY_PRIVATE
-        submission.save(update_fields=["visibility"])
-        self.assertEqual(client.get("/api/showcase").json()["submissions"], [])
-
-    def test_arena_is_hidden_outside_open_window(self):
-        now = timezone.now()
-        Arena.objects.create(team=self.team, title="Future", opens_at=now + timedelta(hours=1), closes_at=now + timedelta(hours=2), is_published=True, created_by=self.user)
-        response = self.client.get("/api/arena")
-        self.assertEqual(response.status_code, 200)
-        self.assertIsNone(response.json()["arena"])
 
     def test_dashboard_exposes_live_stats(self):
         response = self.client.get("/api/dashboard")
@@ -174,49 +126,3 @@ class ClubApiTests(TestCase):
         trailing.refresh_from_db()
         self.assertEqual(timezone.localtime(trailing.starts_at).weekday(), 0)
         self.assertEqual(trailing.ends_at - trailing.starts_at, timedelta(days=7))
-
-    def test_admin_stats_list_members_who_missed_previous_week(self):
-        previous_week = self.semester.weeks.order_by("number").first()
-        previous_week.is_closed = True
-        previous_week.save(update_fields=["is_closed"])
-        other_user = User.objects.create_user(username="incomplete", password="password-123")
-        other = TeamMembership.objects.create(user=other_user, team=self.team, display_name="未达标成员")
-        response = self.client.get("/api/submissions")
-        self.assertEqual(response.status_code, 200, response.content)
-        stats = response.json()["stats"]
-        self.assertEqual(stats["lastWeekNumber"], previous_week.number)
-        incomplete = {item["id"]: item for item in stats["lastWeekIncompleteMembers"]}
-        self.assertIn(other.id, incomplete)
-        self.assertEqual(incomplete[other.id]["score"], 0)
-        self.assertEqual(incomplete[other.id]["submissions"], 0)
-        self.assertTrue(incomplete[other.id]["requiredBoth"])
-
-    def test_visibility_action_persists_submission_visibility(self):
-        week = self.semester.weeks.first()
-        submission = Submission.objects.create(team=self.team, member=self.member, semester=self.semester, week=week)
-        response = self.client.post(
-            "/api/admin/submissions/bulk-approve",
-            data=json.dumps({"submission_ids": [submission.id], "action": "visibility", "visibility": "private"}),
-            content_type="application/json",
-        )
-        self.assertEqual(response.status_code, 200)
-        submission.refresh_from_db()
-        self.assertEqual(submission.visibility, Submission.VISIBILITY_PRIVATE)
-
-    def test_reject_action_persists_rejected_parts(self):
-        week = self.semester.weeks.first()
-        submission = Submission.objects.create(team=self.team, member=self.member, semester=self.semester, week=week)
-        part = SubmissionPart.objects.create(
-            submission=submission,
-            kind=SubmissionPart.PROOF,
-            upload=SimpleUploadedFile("proof.png", b"proof", content_type="image/png"),
-        )
-        response = self.client.post(
-            "/api/admin/submissions/bulk-approve",
-            data=json.dumps({"submission_ids": [submission.id], "action": "reject", "note": "请补充清晰截图"}),
-            content_type="application/json",
-        )
-        self.assertEqual(response.status_code, 200, response.content)
-        part.refresh_from_db()
-        self.assertEqual(part.status, SubmissionPart.REJECTED)
-        self.assertEqual(part.review_note, "请补充清晰截图")

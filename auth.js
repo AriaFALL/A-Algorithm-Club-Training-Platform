@@ -21,6 +21,6 @@ async function submitAuth(form, endpoint) {
   const result = contentType.includes('application/json') ? await response.json().catch(() => ({})) : {};
   if (!response.ok) throw new Error(result.error || '操作失败，请稍后重试');
   authMessage('登录成功，正在进入训练台…', false);
-  window.location.href = '/team-select.html';
+  window.location.href = '/';
 }
 auth$('#loginForm')?.addEventListener('submit', async (event) => { event.preventDefault(); try { await submitAuth(event.target, 'login'); } catch (error) { authMessage(error.message); } });

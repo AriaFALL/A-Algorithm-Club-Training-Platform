@@ -84,7 +84,7 @@ def normalize_ids(values):
 
 @transaction.atomic
 def review_submission_parts(actor, team, *, part_ids=None, submission_ids=None, action='approve', note=''):
-    if not TeamMembership.objects.filter(user=actor, team=team, is_active=True, role__in=['admin', 'owner']).exists():
+    if not TeamMembership.objects.filter(user=actor, team=team, is_active=True, role=TeamMembership.ADMIN).exists():
         raise PermissionDenied('需要当前团队管理员权限')
     if action not in {'approve', 'reject'}:
         raise ValidationError('审核操作无效')
@@ -172,10 +172,12 @@ def settle_week(week):
     return week
 
 
-def cleanup_semester(semester):
+def cleanup_semester(semester, *, enforce_schedule=False):
     """Commit archive + file manifest before deletion; retries keep the snapshot."""
     with transaction.atomic():
         semester = Semester.objects.select_for_update().get(pk=semester.pk)
+        if enforce_schedule and not semester.archived_at and (not semester.cleanup_at or semester.cleanup_at > timezone.now()):
+            return None
         job, _ = CleanupJob.objects.get_or_create(semester=semester, defaults={'scheduled_for': semester.cleanup_at or timezone.now()})
         if job.status == 'completed':
             return job.deleted_submissions, job.deleted_files

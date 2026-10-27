@@ -7,3 +7,5 @@ staticfiles
 backups
 deploy/certbot/conf
 deploy/certbot/www
+
+outputs

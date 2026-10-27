@@ -25,6 +25,12 @@ services:
     restart: unless-stopped
     env_file: .env
     command: sh -c "python manage.py migrate && python manage.py collectstatic --clear --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 60"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8000), 2).close()"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
     environment:
       DJANGO_USE_X_ACCEL_REDIRECT: "1"
     volumes:
@@ -45,7 +51,7 @@ services:
       - media_data:/app/media
     depends_on:
       web:
-        condition: service_started
+        condition: service_healthy
       redis:
         condition: service_started
 
@@ -74,7 +80,7 @@ services:
       - ./deploy/certbot/conf:/etc/letsencrypt:ro
     depends_on:
       web:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   postgres_data:

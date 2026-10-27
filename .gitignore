@@ -25,3 +25,6 @@ _cookie_tmp/
 *.swp
 Thumbs.db
 Desktop.ini
+
+# Local acceptance screenshots and temporary exports
+outputs/
