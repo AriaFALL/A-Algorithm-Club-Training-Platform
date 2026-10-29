@@ -45,7 +45,7 @@ function submissionCard(item, moderation = false) {
     ${proof?.upload ? `<button class="solution-proof" data-zoom="${escapeHtml(proof.upload)}" aria-label="放大通过截图"><img loading="lazy" src="${escapeHtml(proof.upload)}" alt="${escapeHtml(item.member_name)}的通过截图"><span>通过截图 · 点击放大</span></button>` : ''}
     ${logic?.text ? `<div class="shared-content"><strong>写题逻辑</strong><p class="solution-text">${escapeHtml(logic.text)}</p></div>` : ''}
     </div>
-    <div class="solution-actions">${moderation ? item.can_resolve ? `<button class="secondary-button" data-resolve="dismiss" data-id="${item.id}" data-version="${item.version}">驳回举报</button><button class="secondary-button" data-resolve="reject" data-id="${item.id}" data-version="${item.version}">整条退回</button>` : '<span class="muted">请其他管理员处理自己的记录</span>' : `<button class="secondary-button ${item.liked ? 'is-liked' : ''}" data-like="${item.id}" data-liked="${item.liked}" aria-pressed="${item.liked}" ${item.own ? 'disabled' : ''}>赞 ${item.likes}</button><button class="text-button" data-report="${item.id}" ${item.own || item.reported ? 'disabled' : ''}>${item.reported ? '已举报' : '举报'}</button>${item.can_reject ? `<button class="text-button" data-direct-reject="${item.id}" data-version="${item.version}">驳回</button>` : ''}`}</div>
+    <div class="solution-actions">${moderation ? item.can_resolve ? `<button class="secondary-button" data-resolve="dismiss" data-id="${item.id}" data-version="${item.version}">驳回举报</button><button class="secondary-button" data-resolve="reject" data-id="${item.id}" data-version="${item.version}">整条退回</button>` : '<span class="muted">请其他管理员处理自己的记录</span>' : `<button class="secondary-button ${item.liked ? 'is-liked' : ''}" data-like="${item.id}" data-liked="${item.liked}" aria-pressed="${item.liked}" ${item.own ? 'disabled' : ''}>赞 ${item.likes}</button>${item.can_tip ? `<button class="secondary-button" data-tip="${item.id}">打赏</button>` : ""}<button class="text-button" data-report="${item.id}" ${item.own || item.reported ? 'disabled' : ''}>${item.reported ? '已举报' : '举报'}</button>${item.can_reject ? `<button class="text-button" data-direct-reject="${item.id}" data-version="${item.version}">驳回</button>` : ''}`}</div>
   </article>`;
 }
 
@@ -170,6 +170,7 @@ document.addEventListener('click', async event => {
     $('#imageLightbox').classList.add('open');
     $('#imageLightbox').setAttribute('aria-hidden', 'false'); return;
   }
+  if(button.dataset.tip){openTipDialog(button.dataset.tip);return;}
   if (!button.dataset.like && !button.dataset.report && !button.dataset.resolve && !button.dataset.directReject) return;
   let note = '';
   if (button.dataset.resolve === 'reject' || button.dataset.directReject) {
@@ -254,4 +255,18 @@ function editOwnSubmission(id) {
   $('.upload-box strong').textContent = '保留原截图，点击可更换';
   $('#proofHint').textContent = '未选择新图片时保留原截图';
   $('#modalTitle').textContent = '编辑提交记录';
+}
+
+function openTipDialog(id){
+ const dialog=document.createElement('dialog');dialog.className='contest-reward-summary';
+ dialog.innerHTML='<h2>打赏这条提交</h2><form><label>RBC Coins 数量<input name="amount" type="number" min="1" max="2147483647" step="1" required autofocus style="display:block;width:100%;padding:12px;margin:12px 0"></label><p>打赏将从你的余额扣除，并全额转给提交者。</p><p role="status"></p><button type="button" class="secondary-button">取消</button> <button type="submit" class="primary-button">确认打赏</button></form>';
+ const token=clubApi.requestId();let pending=false;
+ dialog.querySelector('button[type=button]').onclick=()=>dialog.close();
+ dialog.addEventListener('cancel',event=>{if(pending)event.preventDefault();});dialog.addEventListener('close',()=>dialog.remove());
+ dialog.querySelector('form').onsubmit=async event=>{
+  event.preventDefault();if(pending)return;const form=event.target,amount=Number(form.elements.amount.value);
+  if(!Number.isSafeInteger(amount)||amount<=0)return;pending=true;form.querySelectorAll('button').forEach(b=>b.disabled=true);
+  try{const result=await communityRequest(`/api/submissions/${id}/tip`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,request_id:token})});dialog.close();await window.CurrencyModule?.init();showToast(`打赏成功：${result.amount} RBC Coins`);}catch(error){form.querySelector('[role=status]').textContent=error.message;}finally{pending=false;form.querySelectorAll('button').forEach(b=>b.disabled=false);}
+ };
+ document.body.append(dialog);dialog.showModal();
 }

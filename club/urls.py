@@ -1,8 +1,27 @@
 from django.urls import path
+from . import extension_views
+from . import profile_views
+from . import contest_progress_views
 
-from . import daily_views, views, community_views as community, management_views as management
+from . import contest_views, daily_views, views, community_views as community, management_views as management, currency_views as currency
+from . import system_management_views as system_management
 
 urlpatterns = [
+    path('management/password', system_management.change_admin_password),
+    path('management/backups', system_management.backup_collection),
+    path('management/backups/import', system_management.import_backup),
+    path('management/backups/<uuid:backup_id>', system_management.backup_detail),
+    path('management/backups/<uuid:backup_id>/restore', system_management.restore_backup),
+    path('management/system-operations/<uuid:operation_id>', system_management.operation_status),
+    path('extensions', extension_views.resources),
+    path('extensions/<int:resource_id>', extension_views.resources),
+    path('extensions/<int:resource_id>/download', extension_views.asset),
+    path('extensions/<int:resource_id>/cover', extension_views.asset, {'cover': True}),
+    path('profile/password', profile_views.change_password),
+    path('submissions/<int:submission_id>/tip', community.tip_submission),
+    path('management/platform-query', management.platform_query_settings),
+    path('contests/progress', contest_progress_views.progress),
+    path('contests/claim', contest_progress_views.claim),
     path("semesters", views.semesters),
     path("attachments/<int:part_id>", views.attachment),
     path("csrf", views.api_csrf),
@@ -13,8 +32,12 @@ urlpatterns = [
     path("auth/create-team", views.create_team),
     path("team/select", views.select_team),
     path("me", views.me),
+    path("profile", profile_views.profile),
+    path("profile/avatar", profile_views.avatar),
+    path("profile/platforms/<str:platform>", profile_views.platform_binding),
     path("dashboard", views.dashboard),
     path("daily-challenges", daily_views.daily_links),
+    path("contests", contest_views.contest_calendar),
     path("members", views.members),
     path("members/<int:member_id>/history", views.member_history),
     path("submissions", views.submissions),
@@ -42,4 +65,22 @@ urlpatterns = [
     path("leaderboard", views.leaderboard),
     path("admin/team-settings", views.team_settings),
     path("export", views.export_xlsx),
+
+    # Currency system endpoints
+    path("currency/balance", currency.api_currency_balance),
+    path("currency/icon/<int:team_id>", currency.api_currency_icon),
+    path("currency/transactions", currency.api_currency_transactions),
+    path("currency/checkin", currency.api_currency_checkin),
+    path("currency/checkin/makeup", currency.api_currency_makeup_checkin),
+    path("currency/checkin/calendar", currency.api_currency_checkin_calendar),
+    path("currency/contest/submit", currency.api_contest_submission),
+    path("currency/shop/items", currency.api_shop_items),
+    path("currency/shop/items/<int:item_id>/icon", currency.api_shop_item_icon),
+    path("currency/shop/purchase", currency.api_shop_purchase),
+    path("currency/inventory", currency.api_user_inventory),
+
+    # Admin currency endpoints
+    path("currency/admin/adjust", currency.api_admin_adjust_balance),
+    path("currency/admin/config", currency.api_admin_currency_config),
+    path("currency/admin/shop", currency.api_admin_shop_items),
 ]

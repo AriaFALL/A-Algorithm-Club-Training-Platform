@@ -1,9 +1,12 @@
-const rankingData = {
-  week: [],
-  term: []
-};
+const rankingData = {};
+const rankingKey = (scope, platform='codeforces') => scope === 'rating' ? `${scope}:${platform}` : scope;
+function rankingSelection(target) {
+  const panel = document.querySelector(target)?.closest('.panel');
+  return {scope: panel?.querySelector('[data-ranking].active')?.dataset.ranking || 'checkin',
+    platform: panel?.querySelector('[data-rating-platform]')?.value || 'codeforces', panel};
+}
 
-const pageTitles = {dashboard:'总览', submissions:'我的提交', leaderboard:'排行榜', showcase:'提交展示', members:'成员列表', admin:'管理工作台'};
+const pageTitles = {extensions:'拓展', dashboard:'总览', submissions:'我的提交', leaderboard:'排行榜', showcase:'提交展示', members:'成员列表', contests:'比赛日程', admin:'管理工作台', rbcshop:'RBC商店'};
 const $ = (selector, root=document) => root.querySelector(selector);
 const $$ = (selector, root=document) => [...root.querySelectorAll(selector)];
 let canManage = false;
@@ -31,30 +34,31 @@ const liveStyle = document.createElement('style'); liveStyle.textContent = '.my-
 const accessibilityStyle = document.createElement('style'); accessibilityStyle.textContent = '.toast{transition:transform .25s ease,opacity .25s ease}.search-box input:focus-visible{outline:2px solid var(--teal);outline-offset:2px}'; document.head.appendChild(accessibilityStyle);
 const escapeHtml = (value='') => String(value).replace(/[&<>'"]/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
 
-function renderLeaderboard(mode='week', target='#leaderboardList') {
+function renderLeaderboard(mode='checkin', target='#leaderboardList') {
   const el = $(target);
   if (!el) return;
-  if (!rankingData[mode]?.length) {
-    el.innerHTML = '<div class="queue-empty">暂无排行榜数据</div>';
-    return;
+  const selection = rankingSelection(target);
+  const rows = rankingData[rankingKey(selection.scope,selection.platform)];
+  const filter = selection.panel?.querySelector('.rating-platform-filter');
+  if (filter) filter.hidden = selection.scope !== 'rating';
+  el.innerHTML = !rows ? '<div class="queue-empty" role="status">正在加载榜单…</div>' : !rows.length
+    ? `<div class="queue-empty">${selection.scope === 'rating' ? '当前团队暂无绑定此平台的成员' : '暂无排行榜数据'}</div>`
+    : (target === '#leaderboardList' ? rows.slice(0,5) : rows).map(row => `
+      <button type="button" class="leader-row ${row.isCurrent ? 'you' : ''}" data-ranking-member="${row.memberId}" aria-label="查看${escapeHtml(row.name)}的历史提交">
+        <span class="leader-rank ${row.rank && row.rank <= 3 ? 'top' : ''}">${row.rank || '—'}</span>
+        <span class="leader-member"><span class="leader-avatar">${escapeHtml(row.name.slice(0,1))}</span><span class="leader-name">${escapeHtml(row.name)}${row.isCurrent ? '（你）' : ''}</span></span>
+        <span class="leader-score">${row.value ?? '—'}<small> ${escapeHtml(row.unit)}</small></span>
+        <span class="leader-count">${escapeHtml(row.detail)}${row.value === null ? ' · 暂无评级' : ''}</span>
+      </button>`).join('');
+  if (target === '#leaderboardList') {
+    const current = rows?.find(row => row.isCurrent);
+    if ($('#yourRankValue')) $('#yourRankValue').textContent = current?.rank ? `#${current.rank}` : '—';
+    if ($('#yourRankChange')) $('#yourRankChange').textContent = {checkin:'当前连续签到',rating:'平台已同步 Rating',wealth:'当前 Coins 余额'}[selection.scope];
   }
-  el.innerHTML = (target === '#leaderboardList' ? rankingData[mode].slice(0, 5) : rankingData[mode]).map((row, index) => {
-    const name = row.name ?? row[0];
-    const initial = row.initial ?? row[1] ?? name.slice(0, 1);
-    const score = row.score ?? row[2] ?? 0;
-    const submissions = row.submissions ?? row[3] ?? 0;
-    const isCurrent = Boolean(row.isCurrent ?? row[4]);
-    return `
-    <button type="button" class="leader-row ${isCurrent ? 'you' : ''}" data-ranking-member="${row.memberId}" aria-label="查看${escapeHtml(name)}的历史提交">
-      <span class="leader-rank ${index < 3 ? 'top' : ''}">${index + 1}</span>
-      <span class="leader-member"><span class="leader-avatar">${escapeHtml(initial)}</span><span class="leader-name">${escapeHtml(name)}${isCurrent ? '（你）' : ''}</span></span>
-      <span class="leader-score">${score}<small> 分</small></span>
-      <span class="leader-count">${submissions} 次</span>
-    </button>`;
-  }).join('');
 }
 
 function setView(view) {
+  if (view === 'rbcshop' && !window.CurrencyModule?.getCurrencyData().enabled) view = 'dashboard';
   if (view === 'admin' && !canManage) view = 'dashboard';
   if (view === currentView) return;
   const previousView = currentView;
@@ -74,12 +78,19 @@ function setView(view) {
     }, 1120);
   }
   window.scrollTo({top:0, behavior:'smooth'});
-  if (view === 'leaderboard') renderLeaderboard('week', '#leaderboardListFull');
+  if (view === 'dashboard') {const selected=rankingSelection('#leaderboardList');loadLeaderboard(selected.scope,selected.platform);}
+  if (view === 'leaderboard') { const selected = rankingSelection('#leaderboardListFull'); renderLeaderboard(selected.scope, '#leaderboardListFull'); loadLeaderboard(selected.scope,selected.platform); }
   if (!demoMode && previousView === 'admin' && view !== 'admin') stopAdminQueuePolling();
   if (!demoMode && view === 'admin') startAdminQueuePolling();
   if (!demoMode && view === 'submissions') loadMySubmissions();
   if (!demoMode && view === 'showcase') loadShowcase();
   if (!demoMode && view === 'members') loadMembersLive();
+  if (!demoMode && view === 'rbcshop' && window.CurrencyModule) {
+    const shopView = document.getElementById('rbcshopView');
+    if (shopView) window.CurrencyModule.renderShopView(shopView);
+  }
+  window.contestSchedule?.activate(view === 'contests');
+  if (view === 'extensions') window.ExtensionResources.load();
 }
 
 function selectPulseDay(date) {
@@ -91,41 +102,21 @@ function selectPulseDay(date) {
     button.classList.toggle('is-selected', selected);
     button.setAttribute('aria-selected', String(selected));
   });
-  $('#pulseFocus').textContent = `${date} · ${day.submitted ? '已有有效提交' : '尚未提交'}`;
+  $('#pulseFocus').textContent = `${date} · ${day.isMakeup ? '已补签' : day.makeupOpen ? '已开放补交，待提交' : day.checkedIn && !day.hasSubmission ? '已签到' : day.submitted ? '已有有效提交' : '尚未提交'}`;
   const button = $('#openSubmission');
   const secondaryButton = $('#openSubmissionSecondary');
   const isFuture = date > pulseToday;
-  const canSubmit = !isFuture && (day.canSubmit || day.submitted);
-
-  if (isFuture) {
-    button.innerHTML = `<span>＋</span>暂未开放`;
-    button.disabled = true;
-    button.classList.add('disabled');
-  } else if (!canSubmit) {
-    button.innerHTML = `<span>＋</span>${date !== pulseToday ? '该日期已截止' : '提交今日记录'}`;
-    button.disabled = true;
-    button.classList.add('disabled');
-  } else {
-    button.innerHTML = `<span>＋</span>${date !== pulseToday && !day.submitted ? '补交当日记录' : '提交今日记录'}`;
-    button.disabled = false;
-    button.classList.remove('disabled');
+  const historical = date < pulseToday;
+  const label = isFuture ? '暂未开放' : historical && day.isMakeup ? '当日已补签'
+    : historical && day.submitted ? '当日已签到' : historical ? '补交当日记录' : '提交今日记录';
+  const disabled = isFuture || !day.canSubmit || historical && (day.submitted || day.isMakeup);
+  for (const entry of [button, secondaryButton].filter(Boolean)) {
+    entry.innerHTML = `<span>＋</span>${label}`;
+    entry.disabled = Boolean(disabled);
+    entry.classList.toggle('disabled', Boolean(disabled));
+    entry.classList.toggle('is-makeup-complete', historical && day.isMakeup);
   }
 
-  if (secondaryButton) {
-    if (isFuture) {
-      secondaryButton.innerHTML = `<span>＋</span>暂未开放`;
-      secondaryButton.disabled = true;
-      secondaryButton.classList.add('disabled');
-    } else if (!canSubmit) {
-      secondaryButton.innerHTML = `<span>＋</span>${date !== pulseToday ? '该日期已截止' : '提交今日记录'}`;
-      secondaryButton.disabled = true;
-      secondaryButton.classList.add('disabled');
-    } else {
-      secondaryButton.innerHTML = `<span>＋</span>${date !== pulseToday && !day.submitted ? '补交当日记录' : '提交今日记录'}`;
-      secondaryButton.disabled = false;
-      secondaryButton.classList.remove('disabled');
-    }
-  }
 }
 
 function wirePulseAtlas() {
@@ -173,7 +164,8 @@ function startDeadlineCountdown(seconds, closed) {
     const welcome = $('.welcome-row .muted');
     if (welcome) welcome.textContent = countdownClosed ? '本周已截止' : `距离截止还有 ${formatRemaining(remaining)}`;
     const formNote = $('.form-note span:last-child');
-    if (formNote) formNote.textContent = countdownClosed ? '本周已截止' : `距离截止还有 ${formatRemaining(remaining)}`;
+    if (formNote && $('#submissionForm')?.dataset.makeup === '1') formNote.textContent = '已开放补交 · 学期结束前有效';
+    else if (formNote) formNote.textContent = countdownClosed ? '本周已截止' : `距离截止还有 ${formatRemaining(remaining)}`;
     if (remaining <= 0 && !countdownClosed) {
       countdownClosed = true;
       window.clearInterval(countdownTimer);
@@ -204,14 +196,16 @@ function renderPulseDays(dashboard) {
   pulseDays = dashboard.pulse || [];
   pulseToday = dashboard.today;
   if (!track || !pulseDays.length) return;
-  track.innerHTML = pulseDays.map((day, i) => `<button class="pulse-week ${day.submitted ? 'is-complete' : ''} ${day.isToday ? 'is-current' : ''}" data-pulse-date="${day.date}" type="button" role="tab" aria-selected="false" aria-label="${day.date} ${day.submitted ? '已提交' : '未提交'}"><span>${day.date.slice(8)}</span></button>`).join('') + '<i class="pulse-line" aria-hidden="true"></i>';
+  track.style.setProperty('--pulse-days', String(pulseDays.length));
+  track.innerHTML = pulseDays.map((day, i) => `<button class="pulse-week ${day.submitted ? 'is-complete' : ''} ${day.makeupOpen ? 'is-unlocked' : ''} ${day.isToday ? 'is-current' : ''}" data-pulse-date="${day.date}" type="button" role="tab" aria-selected="false" aria-label="${day.date} ${day.isMakeup ? '已补签' : day.makeupOpen ? '已开放补交，待提交' : day.checkedIn && !day.hasSubmission ? '已签到' : day.submitted ? '已提交' : '未提交'}"><span>${day.date.slice(5).replace('-', '/')}</span></button>`).join('') + '<i class="pulse-line" aria-hidden="true"></i>';
   $('#pulseStreak').textContent = `你已连续签到${dashboard.streakDays || 0}天`;
   const todayIndex = pulseDays.findIndex(day => day.date === pulseToday);
   const defaultDate = pulseDays.some(day => day.date === selectedPulseDate) ? selectedPulseDate : pulseDays.find(day => day.isToday)?.date || pulseDays[todayIndex >= 0 ? todayIndex : Math.floor(pulseDays.length / 2)].date;
   selectPulseDay(defaultDate);
-  // 滚动到今天的位置（居中显示）
-  if (todayIndex >= 0) {
-    const todayButton = track.children[todayIndex];
+  // Keep the selected date reachable when a historical submission refreshes the page.
+  const selectedIndex = pulseDays.findIndex(day => day.date === defaultDate);
+  if (selectedIndex >= 0) {
+    const todayButton = track.children[selectedIndex];
     if (todayButton) {
       setTimeout(() => {
         const trackWidth = track.offsetWidth;
@@ -279,14 +273,12 @@ function applyLiveDashboardState(dashboard, submissions = []) {
   if ($('#streakValue')) $('#streakValue').innerHTML = `${streak} <small>周</small>`;
   if ($('#quickSubmissions')) $('#quickSubmissions').textContent = `${submissionCount} 次提交`;
   if ($('#quickPending')) $('#quickPending').textContent = '提交即计分';
-  if ($('#quickRank')) $('#quickRank').textContent = stats.rank ? `排名 #${stats.rank}` : '排名 —';
+  if ($('#quickRank')) $('#quickRank').textContent = stats.rank ? `训练排名 #${stats.rank}` : '排名 —';
   if ($('#rankValue')) $('#rankValue').innerHTML = stats.rank ? `#${stats.rank} <small>/ ${stats.memberCount || 0} 人</small>` : '— <small>/ — 人</small>';
   const rankDelta = stats.previousRank && stats.rank ? stats.previousRank - stats.rank : 0;
   if ($('#rankChange')) $('#rankChange').textContent = rankDelta ? `${rankDelta > 0 ? '↑' : '↓'} ${Math.abs(rankDelta)}` : '—';
   if ($('#rankChangeLabel')) $('#rankChangeLabel').textContent = rankDelta ? '较上周' : '暂无变化';
   if ($('#rankGap')) $('#rankGap').textContent = '本周排名';
-  if ($('#yourRankValue')) $('#yourRankValue').textContent = stats.rank ? `#${stats.rank}` : '—';
-  if ($('#yourRankChange')) $('#yourRankChange').textContent = rankDelta ? `${rankDelta > 0 ? '↑' : '↓'} ${Math.abs(rankDelta)} 名` : '暂无变化';
   const featuredValue = $('.metric-card.featured .metric-value');
   const featuredFoot = $('.metric-card.featured .metric-foot span');
   const submissionValue = $('.metric-card:nth-child(2) .metric-value');
@@ -399,7 +391,43 @@ function resetSubmissionForm() {
   if (typeof clearBlogEditor === 'function') clearBlogEditor();
 }
 let currentSubmissionWeekId = null;
-function openModal(forceToday = false) { loadDailyChallenges(); editingSubmission = null; resubmitting = null; const selected = forceToday === true ? null : pulseDays.find(day => day.date === selectedPulseDate); const date = selected && !selected.submitted ? selected.date : pulseToday; if (selected && !selected.submitted && !selected.canSubmit) { showToast('该日期尚未开放或已经截止'); return; } $('#modalTitle').textContent = date && date !== pulseToday ? '补交当日记录' : '提交今日记录'; resetSubmissionForm(); $('#submissionForm').dataset.recordDate = date || ''; if (date) $('.form-note span').textContent = `记录日期：${date}`; $('#submissionForm').dataset.weekId = currentSubmissionWeekId || ''; $('#submissionModal').classList.add('open'); $('#submissionModal').setAttribute('aria-hidden','false'); $('#proofImage').focus(); }
+let makeupInFlight = false;
+async function completeMakeup(date) {
+  if (makeupInFlight) return null;
+  makeupInFlight = true;
+  const buttons = ['openSubmission', 'openSubmissionSecondary'].map(id => $('#'+id)).filter(Boolean);
+  buttons.forEach(button => button.disabled = true);
+  try {
+    const result = await window.CurrencyModule.performMakeupCheckin(date);
+    if (result) await refreshAfterMutation();
+    return result;
+  } finally {
+    makeupInFlight = false;
+    if (selectedPulseDate) selectPulseDay(selectedPulseDate);
+  }
+}
+async function openModal(forceToday = false) {
+  const selected = forceToday === true ? pulseDays.find(day => day.date === pulseToday)
+    : pulseDays.find(day => day.date === selectedPulseDate);
+  const date = selected?.date || pulseToday;
+  const historical = date < pulseToday;
+  if (selected && (!selected.canSubmit || historical && (selected.submitted || selected.isMakeup))) return;
+  let weekId = selected?.weekId || currentSubmissionWeekId;
+  if (historical) {
+    const permission = await completeMakeup(date);
+    if (!permission) return;
+    weekId = permission.week_id;
+  }
+  loadDailyChallenges(); editingSubmission = null; resubmitting = null;
+  $('#modalTitle').textContent = historical ? '补交当日记录' : '提交今日记录'; resetSubmissionForm();
+  $('#submissionForm').dataset.recordDate = date || '';
+  $('#submissionForm').dataset.makeup = historical ? '1' : '';
+  if (date) $('.form-note span').textContent = `记录日期：${date}`;
+  $('#submissionForm').dataset.weekId = weekId || '';
+  if (historical) $('.form-note span:last-child').textContent = '已开放补交 · 学期结束前有效';
+  $('#submissionModal').classList.add('open'); $('#submissionModal').setAttribute('aria-hidden','false'); $('#proofImage').focus();
+}
+
 function closeModal() { $('#submissionModal').classList.remove('open'); $('#submissionModal').setAttribute('aria-hidden','true'); }
 
 $$('.nav-item[data-view]').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
@@ -543,21 +571,21 @@ $('#zoomReviewImage').addEventListener('click', () => {
 $('#closeImageLightbox').addEventListener('click', closeImageLightbox);
 imageLightbox.addEventListener('click', (event) => { if (event.target === imageLightbox) closeImageLightbox(); });
 function wireRankingControls(root=document) {
-  $$('[data-ranking]', root).forEach((button) => button.addEventListener('click', async () => {
-    const group = button.closest('.panel, .leaderboard-panel, .full-leaderboard');
+  $$('[data-ranking]', root).forEach(button => button.addEventListener('click', async () => {
+    const panel = button.closest('.panel');
     syncSegmented(button.closest('.segmented'), button);
-    const target = group && group.id === 'leaderboardListFull' ? '#leaderboardListFull' : (group && $('.full-leaderboard', document) === group ? '#leaderboardListFull' : '#leaderboardList');
-    const scope = button.dataset.ranking;
-    if (!demoMode && !rankingData[scope].length) {
-      button.disabled = true;
-      await loadLeaderboard(scope);
-      button.disabled = false;
-    }
-    renderLeaderboard(scope, target);
+    const target = panel?.classList.contains('full-leaderboard') ? '#leaderboardListFull' : '#leaderboardList';
+    const selected = rankingSelection(target);
+    renderLeaderboard(selected.scope,target);
+    await loadLeaderboard(selected.scope,selected.platform);
+  }));
+  $$('[data-rating-platform]', root).forEach(select => select.addEventListener('change',async () => {
+    const target = select.closest('.full-leaderboard') ? '#leaderboardListFull' : '#leaderboardList';
+    renderLeaderboard('rating',target);
+    await loadLeaderboard('rating',select.value);
   }));
 }
 
-renderLeaderboard('week');
 wireRankingControls();
 initSegmentedControls();
 
@@ -618,8 +646,7 @@ $('#proofImage').addEventListener('change', (event) => {
 
 function clearStaticPreview() {
   const loading = '<div class="queue-empty">正在加载真实数据…</div>';
-  rankingData.week = [];
-  rankingData.term = [];
+  Object.keys(rankingData).forEach(key => delete rankingData[key]);
   ['#leaderboardList', '#leaderboardListFull'].forEach((selector) => {
     const element = $(selector);
     if (element) { element.innerHTML = loading; element.setAttribute('aria-live', 'polite'); }
@@ -700,7 +727,7 @@ async function loadDashboardSummary({forceMine = false} = {}) {
     if (kicker) kicker.textContent = `${dashboard.semester?.name || '当前学期'} · 第 ${String(dashboard.current_week.number).padStart(2, '0')} 周`;
     const label = `第 ${String(dashboard.current_week.number).padStart(2, '0')} 周 · ${dashboard.semester?.name || '当前学期'}`;
     const leaderboardLabel = $('#leaderboardWeekLabel');
-    if (leaderboardLabel) leaderboardLabel.textContent = label;
+    if (leaderboardLabel) leaderboardLabel.textContent = '当前团队 · 最新数据';
     const showcaseLabel = $('.showcase-toolbar .filter-chip');
     if (showcaseLabel) showcaseLabel.textContent = `第 ${String(dashboard.current_week.number).padStart(2, '0')} 周⌄`;
   }
@@ -709,50 +736,51 @@ async function loadDashboardSummary({forceMine = false} = {}) {
   return dashboard;
 }
 
-async function loadLeaderboard(scope = 'week') {
-  if (leaderboardInFlight.has(scope)) return leaderboardInFlight.get(scope);
+async function loadLeaderboard(scope = 'checkin', platform='codeforces') {
+  const key = rankingKey(scope,platform);
+  if (leaderboardInFlight.has(key)) return leaderboardInFlight.get(key);
   const request = (async () => {
     try {
-      const response = await clubApi.request(`/api/leaderboard?scope=${scope}`);
-      if (!response.ok) return false;
+      const response = await clubApi.request(`/api/leaderboard?scope=${encodeURIComponent(scope)}&platform=${encodeURIComponent(platform)}`);
       const payload = await response.json();
-      rankingData[scope] = (payload.rows || []).map((row) => ({
-        memberId: row.memberId,
-        name: row.name,
-        initial: row.name.slice(0, 1),
-        score: row.score,
-        submissions: row.submissions,
-        isCurrent: Boolean(row.isCurrent),
-      }));
-      renderLeaderboard(scope, scope === 'week' ? '#leaderboardList' : '#leaderboardListFull');
-      if (scope === 'week') {
-        const current = (payload.rows || []).find((row) => row.isCurrent);
-        const rank = $('.your-rank strong');
-        if (rank && current) rank.textContent = `#${current.rank}`;
+      if (!response.ok) throw new Error(payload.error || '榜单加载失败');
+      rankingData[key] = payload.rows || [];
+      for (const target of ['#leaderboardList','#leaderboardListFull']) {
+        const selected = rankingSelection(target);
+        if (rankingKey(selected.scope,selected.platform) === key) renderLeaderboard(scope,target);
       }
       return true;
     } catch (error) {
+      for (const target of ['#leaderboardList','#leaderboardListFull']) {
+        const selected = rankingSelection(target);
+        if (rankingKey(selected.scope,selected.platform) === key && !rankingData[key]) $(target).innerHTML = `<div class="queue-empty" role="alert">${escapeHtml(error.message)}</div>`;
+      }
       return false;
     }
   })();
-  leaderboardInFlight.set(scope, request);
-  request.finally(() => {
-    if (leaderboardInFlight.get(scope) === request) leaderboardInFlight.delete(scope);
-  });
+  leaderboardInFlight.set(key,request);
+  request.finally(() => {if (leaderboardInFlight.get(key) === request) leaderboardInFlight.delete(key);});
   return request;
 }
 
 async function refreshAfterMutation({refreshAdmin = false} = {}) {
   const tasks = [
+    window.CurrencyModule?.init(),
     loadRecentActivity({force: true}),
     loadDashboardSummary(),
-    loadLeaderboard('week'),
-    loadLeaderboard('term'),
+    ...['#leaderboardList','#leaderboardListFull'].map(target => {const selected=rankingSelection(target);return loadLeaderboard(selected.scope,selected.platform);}),
   ];
   if (currentView === 'submissions') tasks.push(loadMySubmissions());
   if (refreshAdmin && currentView === 'admin') tasks.push(loadAdminQueue());
   await Promise.allSettled(tasks);
+  renderLeaderboard();
+  renderLeaderboard('checkin','#leaderboardListFull');
 }
+
+window.addEventListener('personal-profile-saved', () => {
+  refreshAfterMutation();
+  if (currentView === 'members') loadMembersLive();
+});
 
 async function loadLiveData() {
   try {
@@ -764,6 +792,8 @@ async function loadLiveData() {
       return;
     }
     const me = await meResponse.json();
+    window.PersonalProfile?.init(me);
+    await window.CurrencyModule?.init();
     initWorkbench(me);
     applyRoleUi(me.site_admin ? 'site_admin' : me.is_team_manager ? 'admin' : me.role);
     if (!me.team && !me.site_admin) { window.location.href = '/team-select.html'; return; }
@@ -774,15 +804,19 @@ async function loadLiveData() {
     if (Array.isArray(me.teams)) { const menu=$('#teamMenu'); if(menu){ menu.innerHTML=me.teams.map(t=>`<button type="button" data-team-id="${t.team_id}" data-team="${escapeHtml(t.team__name)}"><span class="team-avatar small">${escapeHtml((t.team__name||'').slice(0,1))}</span>${escapeHtml(t.team__name)}</button>`).join(''); $$('#teamMenu button').forEach(button=>button.addEventListener('click',async()=>{const response=await clubApi.request('/api/team/select',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({team_id:button.dataset.teamId})}); if(response.ok) location.reload(); else showToast('无权进入该团队');})); } }
     const profile = $('.profile-chip');
     if (profile) { const avatar = profile.querySelector('.profile-avatar'); const name = profile.querySelector('strong'); const role = profile.querySelector('small'); if (avatar) avatar.textContent = (me.name || '').slice(0, 1); if (name) name.textContent = me.name || '当前账号'; if (role) role.textContent = me.site_admin ? '系统管理员' : me.is_team_manager ? '团队管理员' : '普通用户'; }
+    window.PersonalProfile?.updateHeader(me);
     if (!me.team) {
       $('#teamName').textContent = '尚未创建团队';
       $('#dashboardView').innerHTML = '<div class="page-heading"><h1>欢迎回来，系统管理员</h1></div><div class="panel empty-state"><h2>从创建第一个团队开始</h2><p>点击左下角管理工作台，配置团队、成员和题目解析。</p><button class="primary-button" id="openEmptyWorkbench">打开管理工作台</button></div>';
       $('#openEmptyWorkbench').onclick = () => setView('admin');
-      if (new URLSearchParams(location.search).get('view') === 'admin') setView('admin');
+      const requestedView = new URLSearchParams(location.search).get('view');
+      if (pageTitles[requestedView]) setView(requestedView);
       return;
     }
-    await Promise.allSettled([loadRecentActivity(), loadDashboardSummary(), loadLeaderboard('week')]);
-    if (new URLSearchParams(location.search).get('view') === 'admin') setView('admin');
+    await Promise.allSettled([loadRecentActivity(), loadDashboardSummary(), loadLeaderboard('checkin')]);
+    renderLeaderboard();
+    const requestedView = new URLSearchParams(location.search).get('view');
+    if (pageTitles[requestedView]) setView(requestedView);
   } catch (error) { showToast(error.message || '页面数据加载失败，请刷新重试'); }
 }
 async function loadMembersLive() {
@@ -809,6 +843,14 @@ async function loadMembersLive() {
       return;
     }
     grid.innerHTML = members.map((member) => `<article class="member-card" data-member="${escapeHtml(member.name)}"><div class="member-card-head"><span class="member-avatar dark">${escapeHtml(member.name.slice(0,1))}</span><div><strong>${escapeHtml(member.name)}</strong><small>${member.is_system_admin ? '系统管理员' : member.role === 'admin' ? '团队管理员' : '普通用户'}</small></div><span class="member-status">活跃</span></div><div class="member-card-stats"><div><span>本周提交</span><strong>${member.submissions} <small>次</small></strong></div><div><span>学期积分</span><strong>${member.score}</strong></div></div><div class="member-card-actions">${member.can_kick ? `<button class="member-action-button danger" type="button" data-member-kick="${member.id}" data-team-id="${member.team_id}" data-name="${escapeHtml(member.name)}" data-team-name="${escapeHtml(payload.team_name)}">踢出用户</button>` : ''}${member.can_manage_role ? `<button class="member-action-button" type="button" data-member-role="${member.role === 'admin' ? 'member' : 'admin'}" data-team-id="${member.team_id}" data-account="${escapeHtml(member.account)}">${member.role === 'admin' ? '取消团队管理' : '设置团队管理'}</button>` : ''}<button class="member-history-button" type="button" data-member-history="${member.id}">查看历史提交 <span>→</span></button></div></article>`).join('');
+    members.forEach((member,index) => {
+      if (!Object.hasOwn(member,'currency_balance')) return;
+      const button=document.createElement('button'); button.type='button'; button.className='member-currency-button';
+      button.textContent=`${member.currency_balance} RBC · 调整`;
+      button.setAttribute('aria-label',`调整${member.name}的 RBC 余额`);
+      grid.children[index].querySelector('.member-card-head').append(button);
+      button.onclick=()=>window.CurrencyAdminModule.showBalanceAdjustment(member);
+    });
     $$('.member-history-button', grid).forEach((button) => button.addEventListener('click', () => openMemberHistory(button.dataset.memberHistory)));
   } catch (error) {
     grid.innerHTML = '<div class="queue-empty">成员列表加载失败，请检查网络连接</div>';

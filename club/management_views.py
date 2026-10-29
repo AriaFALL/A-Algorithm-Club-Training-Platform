@@ -13,6 +13,7 @@ from django.http import JsonResponse
 
 from .models import Team, TeamMembership, Semester, Submission, SemesterMemberTotal, SubmissionPart, FileDeletion, ReviewLog, CleanupJob, ParserSettings, Problem
 from .views import api_login_required, api_error, body, membership_for
+from .currency_config import config_data, validate_config, apply_config
 
 
 def administrator_required(view):
@@ -102,11 +103,20 @@ def assign_manager(request):
 def delete_team_data(team):
     # Match scoring/archive lock order before deleting the related rows.
     list(Semester.objects.select_for_update().filter(team=team).order_by('pk'))
+    list(TeamMembership.objects.select_for_update().filter(team=team).order_by('pk'))
+    from .models import ShopItem,ContestSubmission,Purchase,UserInventory
     names = set(SubmissionPart.objects.filter(submission__team=team).exclude(upload='').values_list('upload', flat=True))
     for pending in CleanupJob.objects.filter(semester__team=team).values_list('pending_files', flat=True):
         names.update(pending)
+    names.update(ShopItem.objects.filter(team=team).exclude(icon='').values_list('icon',flat=True))
+    names.update(ContestSubmission.objects.filter(team=team).exclude(screenshot='').values_list('screenshot',flat=True))
+    if team.currency_icon:names.add(team.currency_icon.name)
     FileDeletion.objects.bulk_create([FileDeletion(name=name) for name in names if name])
     ReviewLog.objects.filter(submission__team=team).delete()
+    # Explicit whole-team deletion removes team-owned purchase/inventory rows
+    # before their PROTECT references to shop items are collected.
+    UserInventory.objects.filter(team=team).delete()
+    Purchase.objects.filter(team=team).delete()
     team.delete()
 
 
@@ -150,6 +160,26 @@ def kick_member(request, team_id, member_id):
     target.role = 'member'
     target.save(update_fields=['is_active', 'role'])
     return JsonResponse({'ok': True})
+
+
+@administrator_required
+def platform_query_settings(request):
+    from .problem_parser import key_cipher
+    config = ParserSettings.objects.get_or_create(pk=1)[0]
+    if request.method == 'GET':
+        return JsonResponse({'has_luogu_cookie': bool(config.encrypted_luogu_cookie)})
+    if request.method != 'PUT':
+        return api_error('仅支持 GET 或 PUT', 405)
+    data = body(request)
+    cookie = data.get('cookie')
+    if not isinstance(cookie,str) or len(cookie)>8192 or '\r' in cookie or '\n' in cookie:
+        return api_error('Cookie 最多 8192 字符且不能含换行',400)
+    pairs = dict(p.strip().split('=',1) for p in cookie.split(';') if '=' in p)
+    if cookie.strip() and (not pairs.get('_uid','').isdigit() or not pairs.get('__client_id')):
+        return api_error('请填写包含 _uid 和 __client_id 的洛谷 Cookie',400)
+    config.encrypted_luogu_cookie = key_cipher().encrypt(cookie.strip().encode()).decode() if cookie.strip() else ''
+    config.save(update_fields=['encrypted_luogu_cookie'])
+    return JsonResponse({'has_luogu_cookie':bool(config.encrypted_luogu_cookie)})
 
 
 @administrator_required
@@ -258,12 +288,19 @@ def team_configuration(request, team_id):
     semester = Semester.objects.select_for_update().filter(team=team, is_active=True, archived_at__isnull=True).first()
     team = Team.objects.select_for_update().get(pk=team_id)
     if request.method == 'GET':
-        return JsonResponse({'name': team.name, 'code': team.code, 'cleanup': cleanup_schedule_data(semester),
-            'semester': {k: getattr(semester, k) for k in ['name', 'min_submissions', 'min_score', 'require_both', 'screenshot_points', 'logic_points', 'blog_points']} if semester else None})
+        return JsonResponse({
+            'name': team.name,
+            'code': team.code,
+            'cleanup': cleanup_schedule_data(semester),
+            'semester': {k: getattr(semester, k) for k in ['name', 'min_submissions', 'min_score', 'require_both', 'screenshot_points', 'logic_points', 'blog_points']} if semester else None,
+            **config_data(team)
+        })
     if request.method != 'PUT':
         return api_error('仅支持GET或PUT', 405)
     data = body(request)
-    name, code, password = [str(data.get(k, '')).strip() for k in ('name', 'code', 'join_password')]
+    name,code=[str(data.get(k,'')).strip() for k in ('name','code')]
+    password=data.get('join_password','')
+    if not isinstance(password,str):return api_error('加入密码格式无效')
     if not 1 <= len(name) <= 80 or not 1 <= len(code) <= 32 or (password and not 8 <= len(password) <= 200):
         return api_error('团队名、团队码或加入密码长度无效')
     if Team.objects.filter(code__iexact=code).exclude(pk=team_id).exists():
@@ -271,6 +308,10 @@ def team_configuration(request, team_id):
     fields = ['min_submissions', 'min_score', 'screenshot_points', 'logic_points', 'blog_points']
     if semester and (any(type(data.get(k)) is not int or not 0 <= data[k] <= 100000 for k in fields) or type(data.get('require_both')) is not bool):
         return api_error('计分与达标规则无效')
+    try:
+        validate_config(data)
+    except ValueError as exc:
+        return api_error(str(exc))
     team.name, team.code = name, code
     if password:
         from django.contrib.auth.hashers import make_password
@@ -282,6 +323,8 @@ def team_configuration(request, team_id):
         semester.save()
         from .services import refresh_totals
         refresh_totals(semester)
+
+    apply_config(team, data)
     return JsonResponse({'ok': True})
 
 

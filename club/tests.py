@@ -60,13 +60,13 @@ class ClubApiTests(TestCase):
 
     def test_register_validates_confirmation_and_preserves_case(self):
         client = Client()
-        response = client.post("/api/auth/register", data=json.dumps({"account": "CaseUser", "password": "password-123", "confirm_password": "different-123"}), content_type="application/json")
+        response = client.post("/api/auth/register", data=json.dumps({"grade": 0, "account": "CaseUser", "password": "password-123", "confirm_password": "different-123"}), content_type="application/json")
         self.assertEqual(response.status_code, 400)
         self.assertFalse(User.objects.filter(username="CaseUser").exists())
-        response = client.post("/api/auth/register", data=json.dumps({"account": "CaseUser", "password": "password-123", "confirm_password": "password-123"}), content_type="application/json")
+        response = client.post("/api/auth/register", data=json.dumps({"grade": 0, "account": "CaseUser", "password": "password-123", "confirm_password": "password-123"}), content_type="application/json")
         self.assertEqual(response.status_code, 201, response.content)
         self.assertTrue(User.objects.filter(username="CaseUser").exists())
-        response = client.post("/api/auth/register", data=json.dumps({"account": "caseuser", "password": "password-123", "confirm_password": "password-123"}), content_type="application/json")
+        response = client.post("/api/auth/register", data=json.dumps({"grade": 0, "account": "caseuser", "password": "password-123", "confirm_password": "password-123"}), content_type="application/json")
         self.assertEqual(response.status_code, 201, response.content)
 
     def test_submission_requires_proof_and_can_be_approved(self):

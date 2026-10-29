@@ -37,6 +37,11 @@ def protect_admin_identity(sender, instance, **kwargs):
 def protect_admin_deletion(sender, instance, **kwargs):
     if instance.username == 'admin' and instance.is_superuser:
         raise ValidationError('不能删除唯一管理员')
+    from .models import FileDeletion,SubmissionPart,UserProfile,ContestSubmission
+    names=set(SubmissionPart.objects.filter(submission__member__user=instance).exclude(upload='').values_list('upload',flat=True))
+    names.update(UserProfile.objects.filter(user=instance).exclude(avatar='').values_list('avatar',flat=True))
+    names.update(ContestSubmission.objects.filter(member__user=instance).exclude(screenshot='').values_list('screenshot',flat=True))
+    FileDeletion.objects.bulk_create([FileDeletion(name=name) for name in names if name])
 
 
 @receiver(post_save, sender=User)
@@ -47,6 +52,9 @@ def assign_user_group(sender, instance, raw=False, **kwargs):
 
 @receiver(post_save, sender=TeamMembership)
 @receiver(post_delete, sender=TeamMembership)
-def assign_membership_group(sender, instance, raw=False, **kwargs):
-    if not raw:
+def assign_membership_group(sender, instance, raw=False, origin=None, **kwargs):
+    # Cascading User deletion must not recreate an auth_user_groups FK just
+    # before that user is removed. Team/member deletion still updates survivors.
+    deleting_user = isinstance(origin,User) and origin.pk==instance.user_id or getattr(origin,'model',None) is User
+    if not raw and not deleting_user:
         sync_groups(instance.user_id)

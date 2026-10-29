@@ -57,6 +57,7 @@ def showcase(request):
 def community_submission(item, viewer):
     data = serialize_submission(item)
     data.update(likes=item.likes.count(), liked=item.likes.filter(user=viewer.user).exists(),
+                can_tip=bool(viewer.pk and viewer.is_active and viewer.team.currency_enabled and item.member.is_active and item.member.user_id != viewer.user_id and not item.semester.archived_at),
                 reported=item.reports.filter(version=item.version, reporter=viewer.user).exists(),
                 own=item.member.user_id == viewer.user_id, can_reject=viewer.is_admin and item.member.user_id != viewer.user_id and not item.semester.archived_at, archived=bool(item.semester.archived_at))
     return data
@@ -79,6 +80,60 @@ def problem_submissions(request, problem_id):
     return JsonResponse({'problem': {'id': problem.pk, 'title': problem.title or problem.url, 'url': problem.url},
                          'submissions': [community_submission(s, member) for s in page],
                          'next': page.next_page_number() if page.has_next() else None})
+
+
+@api_login_required
+@transaction.atomic
+def tip_submission(request, submission_id):
+    import uuid
+    from .models import TeamMembership, SubmissionTip, CurrencyBalance
+    from .currency_services import get_or_create_balance, deduct_currency, add_currency
+    if request.method != 'POST':
+        return api_error('仅支持 POST',405)
+    member=membership_for(request)
+    if not member or not member.pk or request.user.is_superuser:
+        return api_error('仅团队成员可打赏',403)
+    data=body(request);amount=data.get('amount')
+    if type(amount) is not int or not 1 <= amount <= 2147483647:
+        return api_error('打赏数量必须为正整数',400)
+    try:
+        token=uuid.UUID(str(data.get('request_id','')))
+    except ValueError:
+        return api_error('打赏请求编号无效，请重新打开弹窗',400)
+    target=Submission.objects.filter(pk=submission_id,team_id=member.team_id).first()
+    if not target:return api_error('提交不存在',404)
+    Semester.objects.select_for_update().get(pk=target.semester_id)
+    target=Submission.objects.select_for_update().filter(pk=submission_id,team_id=member.team_id).first()
+    if not target:return api_error('提交不存在',404)
+    members=list(TeamMembership.objects.select_for_update().filter(pk__in=[member.pk,target.member_id]).order_by('pk'))
+    sender=next((m for m in members if m.pk==member.pk),None)
+    recipient=next((m for m in members if m.pk==target.member_id),None)
+    prior=SubmissionTip.objects.filter(request_id=token).first()
+    if prior:
+        if prior.sender_user_id!=request.user.pk or prior.submission_id!=target.pk or prior.amount!=amount:
+            return api_error('打赏请求编号已被使用',409)
+        return JsonResponse({'ok':True,'amount':prior.amount,'duplicate':True})
+    if not sender or not recipient or not sender.is_active or not recipient.is_active or recipient.user_id==sender.user_id:
+        return api_error('不能打赏自己或已退出的成员',403)
+    if not member.team.currency_enabled:
+        return api_error('当前团队未启用 RBC Coins',403)
+    if not target.is_valid or target.semester.archived_at:
+        return api_error('该提交已退回或归档，无法打赏',409)
+    balances=[get_or_create_balance(m) for m in members]
+    locked={b.member_id:b for b in CurrencyBalance.objects.select_for_update().filter(pk__in=[b.pk for b in balances]).order_by('pk')}
+    if locked[sender.pk].balance < amount:
+        return api_error('RBC Coins 余额不足',400)
+    if locked[recipient.pk].balance+amount > 2147483647:
+        return api_error('收款方余额已达上限',400)
+    from django.db import IntegrityError
+    try:
+        with transaction.atomic():
+            SubmissionTip.objects.create(request_id=token,team=member.team,sender_user=request.user,sender=sender,recipient=recipient,submission=target,amount=amount)
+    except IntegrityError:
+        return api_error('打赏请求编号已被使用',409)
+    deduct_currency(sender,amount,'tip_sent',f'打赏 {recipient.display_name} 的提交 #{target.pk}')
+    add_currency(recipient,amount,'tip_received',f'收到 {sender.display_name} 对提交 #{target.pk} 的打赏')
+    return JsonResponse({'ok':True,'amount':amount,'recipient':recipient.display_name})
 
 
 @api_login_required

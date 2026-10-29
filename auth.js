@@ -1,5 +1,8 @@
 ﻿const auth$ = (selector, root=document) => root.querySelector(selector);
 const authMessage = (text, error=true) => { auth$('#authMessage').textContent = text; auth$('#authMessage').style.color = error ? '#c26e65' : '#3d9c79'; };
+const systemNotice = new URLSearchParams(location.search).get('notice');
+if (systemNotice === 'password-changed') authMessage('密码已保存，请使用新密码重新登录。', false);
+if (systemNotice === 'restored') authMessage('数据恢复完成，请使用备份时的账号密码重新登录。', false);
 document.querySelectorAll('[data-auth-tab]').forEach((button) => button.addEventListener('click', () => {
   document.querySelectorAll('[data-auth-tab]').forEach((item) => item.classList.toggle('active', item === button));
   document.querySelectorAll('.auth-form').forEach((form) => form.classList.toggle('active', form.id === `${button.dataset.authTab}Form`));
