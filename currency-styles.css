@@ -1,0 +1,633 @@
+/* RBC Currency System Styles */
+
+/* Currency balance in topbar */
+.currency-balance {
+  display: flex;
+  align-items: center;
+  margin-right: 12px;
+}
+
+.currency-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.currency-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.currency-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.currency-icon-large {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+/* Transaction History Modal */
+.currency-modal {
+  max-width: 700px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.currency-modal .modal-body {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.currency-summary {
+  display: flex;
+  gap: 24px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.currency-summary-item {
+  flex: 1;
+  text-align: center;
+}
+
+.currency-summary-item span {
+  display: block;
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.currency-summary-item strong {
+  font-size: 28px;
+  color: #333;
+}
+
+.transaction-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.transaction-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.transaction-item:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.transaction-info {
+  flex: 1;
+}
+
+.transaction-type {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.transaction-desc {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.transaction-time {
+  font-size: 12px;
+  color: #999;
+}
+
+.transaction-amount {
+  font-size: 20px;
+  font-weight: bold;
+  min-width: 80px;
+  text-align: right;
+}
+
+.transaction-amount.positive {
+  color: #10b981;
+}
+
+.transaction-amount.negative {
+  color: #ef4444;
+}
+
+.transaction-balance {
+  font-size: 14px;
+  color: #666;
+  min-width: 100px;
+  text-align: right;
+}
+
+/* RBC Shop Styles */
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  padding: 20px 0;
+}
+
+.shop-item-card {
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.shop-item-card:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  transform: translateY(-4px);
+}
+
+.shop-item-icon {
+  width: 100%;
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+.shop-item-icon img {
+  max-width: 80%;
+  max-height: 80%;
+  object-fit: contain;
+}
+
+.placeholder-icon {
+  font-size: 64px;
+}
+
+.shop-item-info {
+  padding: 16px;
+  flex: 1;
+}
+
+.shop-item-info h3 {
+  font-size: 18px;
+  margin: 0 0 8px 0;
+  color: #333;
+}
+
+.shop-item-info p {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 8px 0;
+  line-height: 1.5;
+}
+
+.stock-info {
+  font-size: 12px;
+  color: #999;
+}
+
+.shop-item-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.shop-item-price {
+  font-size: 14px;
+}
+
+.shop-item-price strong {
+  font-size: 24px;
+  color: #667eea;
+  margin-right: 4px;
+}
+
+.shop-buy-btn {
+  padding: 8px 24px;
+  font-size: 14px;
+}
+
+/* Currency Display in Page Header */
+.currency-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  background: white;
+  border: 2px solid #667eea;
+  border-radius: 16px;
+}
+
+.currency-display div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.currency-display strong {
+  font-size: 28px;
+  color: #667eea;
+}
+
+.currency-display small {
+  font-size: 12px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Admin Currency Config Styles */
+.currency-config-panel {
+  padding: 24px;
+  background: white;
+  border-radius: 12px;
+}
+
+.currency-config-panel h3 {
+  margin: 0 0 24px 0;
+  font-size: 20px;
+  color: #333;
+}
+
+.modal-overlay .form-group {
+  margin-bottom: 24px;
+}
+
+.modal-overlay .form-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.modal-overlay .form-group input[type="text"],
+.modal-overlay .form-group input[type="number"],
+.modal-overlay .form-group textarea,
+.modal-overlay .form-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.modal-overlay .form-group small {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #666;
+}
+
+.streak-reward-item,
+.contest-reward-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.streak-days,
+.streak-amount,
+.contest-problems,
+.contest-amount {
+  width: 80px;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.delete-btn {
+  padding: 6px 12px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.2s;
+}
+
+.delete-btn:hover {
+  background: #dc2626;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Shop Management Panel */
+.shop-management-panel {
+  padding: 24px;
+  background: white;
+  border-radius: 12px;
+}
+
+.shop-management-panel .panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.shop-management-panel .panel-header h3 {
+  margin: 0;
+  font-size: 20px;
+  color: #333;
+}
+
+.shop-items-table {
+  overflow-x: auto;
+}
+
+.shop-items-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.shop-items-table th {
+  text-align: left;
+  padding: 12px;
+  background: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
+  font-weight: 600;
+  color: #333;
+}
+
+.shop-items-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.shop-items-table button {
+  padding: 6px 12px;
+  margin-right: 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.edit-item-btn {
+  background: #667eea;
+  color: white;
+}
+
+.edit-item-btn:hover {
+  background: #5568d3;
+}
+
+.delete-item-btn {
+  background: #ef4444;
+  color: white;
+}
+
+.delete-item-btn:hover {
+  background: #dc2626;
+}
+
+/* Member balance display */
+.member-balance-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-left: 12px;
+}
+
+.member-balance-display .currency-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.balance-adjust-btn {
+  padding: 4px 10px;
+  background: white;
+  color: #667eea;
+  border: 1px solid #667eea;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-left: 8px;
+  transition: all 0.2s;
+}
+
+.balance-adjust-btn:hover {
+  background: #667eea;
+  color: white;
+}
+
+/* Contest submission button */
+.contest-submit-btn {
+  padding: 8px 16px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.contest-submit-btn:hover {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.contest-submit-btn:disabled {
+  background: #d1d5db;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .shop-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .currency-summary {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .transaction-item {
+    flex-wrap: wrap;
+  }
+
+  .transaction-amount,
+  .transaction-balance {
+    min-width: auto;
+  }
+}
+
+/* Modal overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: currencyFadeIn 0.2s;
+}
+
+@keyframes currencyFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-overlay .modal-content {
+  background: white;
+  border-radius: 12px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  animation: currencySlideUp 0.3s;
+}
+
+@keyframes currencySlideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-overlay .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-overlay .modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #333;
+}
+
+.modal-overlay .modal-close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #999;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.modal-overlay .modal-close:hover {
+  background: #f3f4f6;
+  color: #333;
+}
+
+.modal-overlay .modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-overlay .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Empty state */
+:is(.modal-overlay,#rbcshopView) .empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: #999;
+  font-size: 14px;
+}
+
+/* Error message */
+.error-message {
+  padding: 16px;
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+.workbench-currency-settings{border-top:1px solid var(--line);margin-top:24px;padding-top:12px}
+.currency-config-panel.workbench-form{display:block;padding:8px 0}
+.currency-config-panel>h3{margin:12px 0 18px}.currency-config-panel>p{margin:10px 0 20px}
+.currency-config-options{border:0;padding:0;margin:0;min-width:0}
+.currency-config-options[hidden]{display:none}.currency-config-options>label{display:flex;flex-direction:column;gap:8px;max-width:480px;margin:18px 0}
+.currency-config-options h4{margin:24px 0 12px}.currency-rule-row{display:flex;align-items:end;gap:14px;flex-wrap:wrap;margin:12px 0;padding:14px;background:#f5f8fb;border-radius:9px}
+.currency-rule-row label{display:flex;flex-direction:column;gap:7px;font-size:12px;flex:1;min-width:100px;max-width:200px}.currency-rule-row input{width:100%}.currency-rule-row>strong{align-self:center;min-width:140px;font-size:13px}
+.currency-rule-row button{padding:10px}.currency-rule-actions,.currency-icon-preview{display:flex;align-items:center;gap:12px}.currency-config-status{font-size:12px;color:var(--muted)}
+.member-currency-button{margin-left:auto;padding:7px 9px;border:1px solid var(--line);border-radius:7px;color:var(--teal-dark);font-size:12px;white-space:nowrap}
+.currency-adjust-modal label{display:flex;flex-direction:column;gap:8px;margin:16px 0}.currency-adjust-modal input{padding:10px;border:1px solid var(--line);border-radius:7px}
+.currency-button{background:var(--teal);border-radius:9px;padding:7px 10px;font-size:12px}.currency-button:hover{transform:none}.currency-balance{margin-right:0}
+.currency-modal .modal-body{min-height:0}.shop-item-card:has(.shop-buy-btn:disabled){opacity:.85}
+@media(max-width:760px){.currency-button{padding:6px;gap:4px}.currency-balance{margin:0}.currency-rule-row{gap:8px}.member-card-head{flex-wrap:wrap}.currency-summary{gap:10px}.currency-rule-actions{flex-wrap:wrap}}
+@media(prefers-reduced-motion:reduce){.modal-overlay,.modal-overlay .modal-content{animation:none}.currency-button,.shop-item-card{transition:none}}

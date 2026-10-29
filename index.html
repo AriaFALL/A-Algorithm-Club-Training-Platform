@@ -6,6 +6,9 @@
     <meta name="theme-color" content="#f5f8fc" />
     <title>算法社团训练台</title>
     <link rel="stylesheet" href="styles.css?v=daily-pulse-8" />
+    <link rel="stylesheet" href="currency-styles.css" />
+    <link rel="stylesheet" href="profile.css" />
+    <link rel="stylesheet" href="extensions.css" />
     <link rel="stylesheet" href="static/blog-editor.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
   </head>
@@ -37,8 +40,10 @@
           <button class="nav-item active" data-view="dashboard" type="button"><span class="nav-icon">⌂</span>总览</button>
           <button class="nav-item" data-view="submissions" type="button"><span class="nav-icon">□</span>我的提交</button>
           <button class="nav-item" data-view="leaderboard" type="button"><span class="nav-icon">↗</span>排行榜</button>
+          <button class="nav-item" data-view="contests" type="button"><span class="nav-icon">▦</span>比赛日程</button>
           <button class="nav-item" data-view="showcase" type="button"><span class="nav-icon">▤</span>提交展示</button>
           <button class="nav-item" data-view="members" type="button"><span class="nav-icon">♧</span>成员列表</button>
+          <button class="nav-item" data-view="extensions" type="button"><span class="nav-icon">◈</span>拓展</button>
         </nav>
 
         <div class="sidebar-footer">
@@ -52,9 +57,42 @@
           <div class="breadcrumbs"><span>工作台</span><span class="slash">/</span><strong id="pageTitle">总览</strong></div>
           <div class="topbar-actions">
             <button class="icon-button" type="button" title="消息" aria-label="消息"><span class="notification-dot"></span>◌</button>
-            <div class="profile-chip"><span class="profile-avatar">林</span><span><strong>林同学</strong><small>团队管理员</small></span><button class="logout-button" id="logoutButton" type="button">退出登录</button></div>
+            <div class="profile-chip"><button id="openProfile" class="profile-entry" type="button" disabled aria-label="打开个人信息"><span class="profile-avatar"></span><span><strong>正在加载…</strong><small></small></span></button><button class="logout-button" id="logoutButton" type="button">退出登录</button></div>
           </div>
         </header>
+
+        <div class="page-view" id="extensionsView"></div>
+        <div class="page-view" id="contestsView">
+          <section class="page-heading contest-heading">
+            <div><p class="kicker">CONTEST CALENDAR</p><h1>比赛日程</h1><p class="muted">找到下一场值得挑战的比赛，让训练有个期待。</p></div>
+            <button class="secondary-button" id="contestRefresh" type="button">↻ 刷新日程</button>
+          </section>
+          <section class="contest-overview" aria-label="赛程概览">
+            <div class="contest-progress-actions"><button type="button" class="primary-button" id="contestSync">↻ 同步比赛进度</button><button type="button" class="primary-button" id="contestClaimAll" hidden>一键领取奖励</button><span id="contestProgressStatus" role="status"></span></div>
+            <div><span>未来 7 天</span><strong id="contestWeekCount">—</strong><small>场即将开始</small></div>
+            <div><span>正在进行</span><strong id="contestRunningCount">—</strong><small>场比赛</small></div>
+            <div class="contest-next"><span>下一场比赛</span><strong id="contestNextName">正在获取赛程</strong><small id="contestNextTime">统一使用北京时间 · UTC+8</small></div>
+          </section>
+          <section class="panel contest-browser" aria-label="浏览比赛">
+            <div class="contest-toolbar">
+              <div class="contest-tabs" role="group" aria-label="比赛状态">
+                <button type="button" data-contest-tab="upcoming" aria-pressed="true">即将开始</button>
+                <button type="button" data-contest-tab="running" aria-pressed="false">进行中</button>
+                <button type="button" data-contest-tab="finished" aria-pressed="false">最近结束</button><button type="button" data-contest-tab="attended" aria-pressed="false" hidden>已参加</button>
+              </div>
+              <label class="contest-search"><span>搜索比赛</span><input id="contestSearch" type="search" placeholder="搜索名称、平台…" maxlength="100" /></label>
+            </div>
+            <div class="contest-filters">
+              <label>比赛平台<select id="contestPlatform"><option value="">全部平台</option><option value="codeforces">Codeforces</option><option value="atcoder">AtCoder</option><option value="nowcoder">牛客</option><option value="luogu">洛谷</option><option value="leetcode">LeetCode</option></select></label>
+              <span id="contestWindowLabel">未来 90 天 / 最近结束 7 天 · 北京时间</span>
+              <button class="text-button" id="contestReset" type="button">重置筛选</button>
+            </div>
+            <div id="contestSourceStatus" class="contest-source-status" role="status"></div>
+            <div id="contestResults" aria-live="polite" aria-busy="true"><div class="queue-empty">正在获取各平台赛程…</div></div>
+            <div class="contest-pagination"><span id="contestResultCount"></span><button class="secondary-button" id="contestPrev" type="button" disabled>上一页</button><span id="contestPageNumber"></span><button class="secondary-button" id="contestNext" type="button" disabled>下一页</button></div>
+          </section>
+          <p class="contest-footnote">赛程每日北京时间 6:00、18:00 自动更新，也可手动刷新；具体安排及报名要求以比赛官网为准。</p>
+        </div>
 
         <div class="page-view active" id="dashboardView">
           <section class="atlas-hero">
@@ -91,7 +129,7 @@
                 <p class="pulse-copy">每一次提交，都会让这一周更接近完成。</p>
               </div>
             </div>
-            <div class="pulse-track" role="tablist" aria-label="选择本周日期，可横向拖动">
+            <div class="pulse-track" role="tablist" aria-label="选择日期，显示前7天和后3天，可横向拖动">
 
             </div>
             <div class="pulse-detail" id="pulseDetail">
@@ -114,10 +152,10 @@
               <div class="metric-foot"><span>再完成 1 次即可</span><span class="muted">本周要求</span></div>
             </article>
             <article class="metric-card">
-              <div class="metric-top"><span>当前排名</span><span class="metric-icon gold">↗</span></div>
+              <div class="metric-top"><span>本周训练排名</span><span class="metric-icon gold">↗</span></div>
               <div class="metric-value" id="rankValue">— <small>/ — 人</small></div>
               <div class="rank-change"><span class="rank-pill" id="rankChange">—</span><span id="rankChangeLabel">排名变化</span></div>
-              <div class="metric-foot"><span id="rankGap">—</span><span class="muted">本周榜</span></div>
+              <div class="metric-foot"><span id="rankGap">—</span><span class="muted">训练积分</span></div>
             </article>
             <article class="metric-card">
               <div class="metric-top"><span>连续达标</span><span class="metric-icon violet">◒</span></div>
@@ -140,19 +178,22 @@
 
             <article class="panel leaderboard-panel">
               <div class="panel-heading"><div><p class="section-label">TEAM RANKING</p><h2>团队排行榜</h2></div><button class="text-button" data-view-target="leaderboard" type="button">完整榜单 <span>→</span></button></div>
-              <div class="segmented segmented--ranking" role="tablist" aria-label="排行榜范围"><button class="segment active" data-ranking="week" type="button">本周</button><button class="segment" data-ranking="term" type="button">本学期</button></div>
-              <div class="leaderboard-list" id="leaderboardList"></div>
+              <div class="segmented segmented--ranking" role="tablist" aria-label="排行榜分类"><button class="segment active" data-ranking="checkin" type="button">签到榜</button><button class="segment" data-ranking="rating" type="button">Rating榜</button><button class="segment" data-ranking="wealth" type="button">财富榜</button></div>
+              <label class="rating-platform-filter" hidden>竞赛平台<select data-rating-platform aria-label="Rating榜竞赛平台"><option value="codeforces">Codeforces</option><option value="atcoder">AtCoder</option><option value="nowcoder">牛客</option><option value="luogu">洛谷</option><option value="leetcode_cn">LeetCode 中国站</option><option value="leetcode_us">LeetCode 国际站</option></select></label><div class="leaderboard-list" id="leaderboardList"></div>
               <div class="your-rank"><span>你的排名</span><strong id="yourRankValue">—</strong><span class="rank-up" id="yourRankChange">排名加载中</span></div>
             </article>
           </section>
         </div>
 
         <div class="page-view" id="submissionsView"><div class="page-heading"><div><p class="kicker">提交记录</p><h1>我的提交</h1><p class="muted">按周查看你的题目、材料与退回原因。</p></div><button class="primary-button" id="openSubmissionSecondary" type="button"><span>＋</span>提交今日记录</button></div><div class="panel empty-state"><div class="empty-icon">□</div><h2>这里会留下你的训练轨迹</h2><p>本周已有 3 次有效提交，继续保持。</p><button class="secondary-button" id="emptyAction" type="button">继续提交</button></div></div>
-        <div class="page-view" id="leaderboardView"><div class="page-heading"><div><p class="kicker">团队数据</p><h1>排行榜</h1><p class="muted">只对当前团队成员开放。</p></div><div class="date-chip" id="leaderboardWeekLabel">当前周次 · 当前学期</div></div><div class="panel full-leaderboard"><div class="segmented segmented--ranking large" role="tablist" aria-label="排行榜范围"><button class="segment active" data-ranking="week" type="button">本周榜</button><button class="segment" data-ranking="term" type="button">本学期榜</button></div><div class="leaderboard-list" id="leaderboardListFull"></div></div></div>
+        <div class="page-view" id="leaderboardView"><div class="page-heading"><div><p class="kicker">团队数据</p><h1>排行榜</h1><p class="muted">只对当前团队成员开放。</p></div><div class="date-chip" id="leaderboardWeekLabel">当前团队 · 最新数据</div></div><div class="panel full-leaderboard"><div class="segmented segmented--ranking large" role="tablist" aria-label="排行榜分类"><button class="segment active" data-ranking="checkin" type="button">签到榜</button><button class="segment" data-ranking="rating" type="button">Rating榜</button><button class="segment" data-ranking="wealth" type="button">财富榜</button></div><label class="rating-platform-filter" hidden>竞赛平台<select data-rating-platform aria-label="Rating榜竞赛平台"><option value="codeforces">Codeforces</option><option value="atcoder">AtCoder</option><option value="nowcoder">牛客</option><option value="luogu">洛谷</option><option value="leetcode_cn">LeetCode 中国站</option><option value="leetcode_us">LeetCode 国际站</option></select></label><div class="leaderboard-list" id="leaderboardListFull"></div></div></div>
         <div class="page-view" id="adminView"><div class="queue-empty">正在加载管理工作台…</div></div>
 
         <div class="page-view" id="showcaseView"><div class="page-heading"><div><p class="kicker">TEAM LIBRARY</p><h1>提交展示</h1><p class="muted">从本周题目出发，浏览同题的全部历史题解。</p></div><span class="showcase-note">仅当前团队成员可见</span></div><div class="problem-toolbar"><button id="problemBack" class="text-button" hidden>← 返回题目列表</button><select id="galleryWeek" aria-label="选择展示周次"></select><a id="problemOriginal" class="blog-link" target="_blank" rel="noopener noreferrer" hidden>打开原题 ↗</a></div><h2 id="problemHeading">本周题目</h2><div id="showcaseGrid" class="problem-list"></div><button id="galleryMore" class="secondary-button" hidden>加载更多</button></div>
         <div class="page-view" id="membersView"><div class="page-heading"><div><p class="kicker">TEAM DIRECTORY</p><h1>成员列表</h1><p class="muted">查看团队成员的训练进度，点击成员可查看指定周次的历史提交。</p></div><div class="date-chip">30 位成员</div></div><div class="member-toolbar"><div class="search-box"><span>⌕</span><input id="memberSearch" type="search" placeholder="搜索成员姓名" /></div><div class="filter-chip">全部成员⌄</div></div><div class="members-grid" id="membersGrid"><article class="member-card" data-member="林同学"><div class="member-card-head"><span class="member-avatar dark">林</span><div><strong>林同学</strong><small>团队管理员 · 连续达标 5 周</small></div><span class="member-status">活跃</span></div><div class="member-card-stats"><div><span>本周积分</span><strong>7 <small>/ 10</small></strong></div><div><span>本周提交</span><strong>3 <small>次</small></strong></div><div><span>学期积分</span><strong>72</strong></div></div><button class="member-history-button" type="button" data-member-history="lin">查看历史提交 <span>→</span></button></article><article class="member-card" data-member="王同学"><div class="member-card-head"><span class="member-avatar">王</span><div><strong>王同学</strong><small>连续达标 6 周 · 本周排名 1</small></div><span class="member-status">活跃</span></div><div class="member-card-stats"><div><span>本周积分</span><strong>12 <small>/ 10</small></strong></div><div><span>本周提交</span><strong>5 <small>次</small></strong></div><div><span>学期积分</span><strong>79</strong></div></div><button class="member-history-button" type="button" data-member-history="wang">查看历史提交 <span>→</span></button></article><article class="member-card" data-member="李同学"><div class="member-card-head"><span class="member-avatar blue">李</span><div><strong>李同学</strong><small>连续达标 4 周 · 本周排名 2</small></div><span class="member-status">活跃</span></div><div class="member-card-stats"><div><span>本周积分</span><strong>10 <small>/ 10</small></strong></div><div><span>本周提交</span><strong>4 <small>次</small></strong></div><div><span>学期积分</span><strong>86</strong></div></div><button class="member-history-button" type="button" data-member-history="li">查看历史提交 <span>→</span></button></article><article class="member-card" data-member="陈同学"><div class="member-card-head"><span class="member-avatar purple">陈</span><div><strong>陈同学</strong><small>连续达标 3 周 · 本周排名 4</small></div><span class="member-status offline">本周未达标</span></div><div class="member-card-stats"><div><span>本周积分</span><strong>8 <small>/ 10</small></strong></div><div><span>本周提交</span><strong>3 <small>次</small></strong></div><div><span>学期积分</span><strong>76</strong></div></div><button class="member-history-button" type="button" data-member-history="chen">查看历史提交 <span>→</span></button></article></div></div>
+
+        <!-- RBC Shop View -->
+        <div class="page-view" id="rbcshopView"></div>
       </main>
     </div>
 
@@ -230,6 +271,11 @@
     <script src="community.js"></script>
     <script src="workbench.js"></script>
     <script src="static/blog-editor.js"></script>
+    <script src="contests.js"></script>
+    <script src="currency.js"></script>
+    <script src="currency-admin.js"></script>
+    <script src="profile.js"></script>
+    <script src="extensions.js"></script>
   <script src="app.js"></script>
   </body>
 </html>

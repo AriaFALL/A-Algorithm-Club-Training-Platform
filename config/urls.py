@@ -36,6 +36,8 @@ def frontend_asset(request, filename):
 
 
 urlpatterns = [
+    path("extensions.js", lambda request: frontend_asset(request, "extensions.js")),
+    path("extensions.css", lambda request: frontend_asset(request, "extensions.css")),
     path("admin/", admin.site.urls),
     path("api/", include("club.urls")),
     path("", frontend),
@@ -51,6 +53,12 @@ urlpatterns = [
     path("styles.css", lambda request: frontend_asset(request, "styles.css")),
     path("community.js", lambda request: frontend_asset(request, "community.js")),
     path("app.js", lambda request: frontend_asset(request, "app.js")),
+    path("profile.js", lambda request: frontend_asset(request, "profile.js")),
+    path("profile.css", lambda request: frontend_asset(request, "profile.css")),
+    path("contests.js", lambda request: frontend_asset(request, "contests.js")),
+    path("currency.js", lambda request: frontend_asset(request, "currency.js")),
+    path("currency-admin.js", lambda request: frontend_asset(request, "currency-admin.js")),
+    path("currency-styles.css", lambda request: frontend_asset(request, "currency-styles.css")),
     path("auth.js", lambda request: frontend_asset(request, "auth.js")),
     path("api.js", lambda request: frontend_asset(request, "api.js")),
 ]

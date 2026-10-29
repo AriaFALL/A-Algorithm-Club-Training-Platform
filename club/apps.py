@@ -7,3 +7,4 @@ class ClubConfig(AppConfig):
 
     def ready(self):
         from . import role_signals  # noqa: F401
+        from . import system_task  # noqa: F401

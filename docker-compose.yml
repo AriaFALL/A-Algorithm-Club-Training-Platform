@@ -36,6 +36,7 @@ services:
     volumes:
       - media_data:/app/media
       - static_data:/app/staticfiles
+      - backup_data:/app/backups
     depends_on:
       db:
         condition: service_healthy
@@ -49,6 +50,7 @@ services:
     command: celery -A config worker -l INFO --concurrency=1
     volumes:
       - media_data:/app/media
+      - backup_data:/app/backups
     depends_on:
       web:
         condition: service_healthy
@@ -60,6 +62,8 @@ services:
     restart: unless-stopped
     env_file: .env
     command: celery -A config beat -l INFO
+    volumes:
+      - backup_data:/app/backups
     depends_on:
       worker:
         condition: service_started
@@ -87,3 +91,4 @@ volumes:
   redis_data:
   media_data:
   static_data:
+  backup_data:

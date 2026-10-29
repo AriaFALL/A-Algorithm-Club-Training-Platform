@@ -27,6 +27,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "club.system_guard.SystemOperationMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -73,6 +74,7 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 USE_X_ACCEL_REDIRECT = os.environ.get("DJANGO_USE_X_ACCEL_REDIRECT", "0") == "1"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+SYSTEM_BACKUP_ROOT = Path(os.environ.get('SYSTEM_BACKUP_ROOT', str(BASE_DIR / 'backups' / 'system')))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SESSION_COOKIE_HTTPONLY = True
@@ -97,7 +99,16 @@ CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://redis:6379/1")
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_ENABLE_UTC = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_DEFAULT_PRIORITY = 5
+CELERY_BROKER_TRANSPORT_OPTIONS = {'priority_steps':list(range(10)), 'queue_order_strategy':'priority'}
+from celery.schedules import crontab
+
 CELERY_BEAT_SCHEDULE = {
+    "refresh-contest-calendar": {
+        "task": "club.tasks.refresh_contest_calendar",
+        "schedule": crontab(hour="6,18", minute=0),
+    },
     "settle-weeks-and-cleanup": {
         "task": "club.tasks.settle_and_cleanup",
         "schedule": 60.0,

@@ -92,7 +92,8 @@ def active_semester(team):
 
 def active_week(semester):
     now = timezone.now()
-    return semester.weeks.filter(starts_at__lte=now, ends_at__gt=now, is_closed=False).first()
+    # This helper is used by read-only dashboards/lists; closed weeks still display.
+    return semester.weeks.filter(starts_at__lte=now, ends_at__gt=now).first()
 
 
 def member_week_score(member, week):
@@ -119,7 +120,7 @@ def member_week_progress(members, week):
 def leaderboard_rows_for(team, semester, week=None):
     scores, counts = progress_rows(semester, week)
     rows = [{'memberId': member.id, 'name': member.display_name, 'score': scores.get(member.id, 0),
-             'submissions': counts.get(member.id, 0)} for member in team.memberships.filter(is_active=True)]
+             'submissions': counts.get(member.id, 0)} for member in team.memberships.filter(is_active=True,user__is_active=True,user__is_superuser=False)]
     rows.sort(key=lambda row: (-row['score'], -row['submissions'], row['name']))
     for index, row in enumerate(rows, 1):
         row['rank'] = index
@@ -193,11 +194,16 @@ def repair_text(value):
 
 
 @api_login_required
+@transaction.atomic
 def join_team(request):
     if request.method != 'POST':
         return api_error('仅支持POST', 405)
+    if request.user.is_superuser:return api_error('系统管理员可直接切换管理团队，无需加入',403)
+    User.objects.select_for_update(no_key=True).get(pk=request.user.pk)
     data = body(request)
-    code, name, password = [str(data.get(key, '')).strip() for key in ('team_code', 'name', 'join_password')]
+    code,name=[str(data.get(key,'')).strip() for key in ('team_code','name')]
+    password=data.get('join_password','')
+    if not isinstance(password,str):return api_error('加入密码格式无效')
     if not code or not name or len(name) > 40:
         return api_error('请填写团队码和1至40字团队昵称')
     team = Team.objects.filter(code__iexact=code).first()
@@ -205,7 +211,11 @@ def join_team(request):
         return api_error('团队编号或加入密码错误', 403)
     if TeamMembership.objects.filter(team=team).filter(Q(user=request.user) | Q(display_name=name)).exists():
         return api_error('已经加入该团队或昵称已被使用')
-    membership = TeamMembership.objects.create(user=request.user, team=team, display_name=name, role=TeamMembership.MEMBER)
+    try:
+        with transaction.atomic():
+            membership = TeamMembership.objects.create(user=request.user, team=team, display_name=name, role=TeamMembership.MEMBER)
+    except IntegrityError:
+        return api_error('昵称已被使用或团队信息已变化，请刷新后重试',409)
     request.session['team_id'] = team.pk
     return JsonResponse({'ok': True, 'team': team.name, 'name': membership.display_name})
 
@@ -214,16 +224,28 @@ def register_account(request):
     if request.method != "POST":
         return api_error("仅支持 POST", 405)
     data = body(request)
-    account = str(data.get("account", "")).strip()
-    password = str(data.get("password", ""))
-    confirm_password = str(data.get("confirm_password", ""))
-    if not account or len(account) < 3 or len(password) < 8:
-        return api_error("账号至少 3 位，密码至少 8 位")
+    account=data.get('account','');password=data.get('password','');confirm_password=data.get('confirm_password','')
+    if not all(isinstance(v,str) for v in (account,password,confirm_password)):
+        return api_error('账号或密码格式无效')
+    account=account.strip()
+    if not 3 <= len(account) <= 150 or not 8 <= len(password) <= 128:
+        return api_error('账号需为3–150位，密码需为8–128位')
     if password != confirm_password:
         return api_error("两次密码不一致")
     if User.objects.filter(username=account).exists():
         return api_error("该账号已存在")
-    user = User.objects.create_user(username=account, password=password)
+    from .grades import validate_grade
+    from .models import UserProfile
+    try:
+        grade = validate_grade(data.get('grade'))
+    except ValueError as exc:
+        return api_error(str(exc))
+    try:
+        with transaction.atomic():
+            user = User.objects.create_user(username=account, password=password)
+            UserProfile.objects.create(user=user, grade=grade, grade_date=timezone.localdate())
+    except IntegrityError:
+        return api_error('该账号已存在',409)
     login(request, user)
     request.session.pop("team_id", None)
     return JsonResponse({"ok": True, "account": user.username, "teams": []}, status=201)
@@ -236,7 +258,7 @@ def login_view(request):
     code = str(data.get("team_code", "")).strip()
     name = str(data.get("name", "")).strip()
     account = str(data.get("account", name)).strip()
-    password = str(data.get("password", "")).strip()
+    password = str(data.get("password", ""))
     account_user = User.objects.filter(username=account, is_active=True).first()
     if account_user and check_password(password, account_user.password):
         memberships = TeamMembership.objects.select_related("team").filter(user=account_user, is_active=True)
@@ -252,6 +274,7 @@ def login_view(request):
 
 
 def logout_view(request):
+    if request.method != "POST":return api_error("仅支持 POST",405)
     logout(request)
     return JsonResponse({"ok": True})
 
@@ -307,15 +330,16 @@ def select_team(request):
 
 @api_login_required
 def me(request):
+    from .profile_views import avatar_url
     membership = membership_for(request)
     teams = teams_for(request.user)
     role = 'site_admin' if request.user.is_superuser else membership.role if membership else 'member'
     return JsonResponse({'name': membership.display_name if membership else request.user.username,
-        'account': request.user.username, 'site_admin': request.user.is_superuser, 'role': role,
+        'account': request.user.username, 'avatar': avatar_url(request.user), 'site_admin': request.user.is_superuser, 'role': role,
         'is_team_manager': request.user.team_memberships.filter(role='admin', is_active=True).exists(),
         'can_manage_current': request.user.is_superuser or bool(membership and membership.is_admin),
         'managed_teams': list(request.user.team_memberships.filter(role='admin', is_active=True).values('team_id', 'team__name', 'team__code')),
-        'can_submit': bool(membership and membership.pk),
+        'can_submit': bool(membership and membership.pk and not request.user.is_superuser),
         'group': '管理员' if request.user.is_superuser else '团队管理用户组' if request.user.team_memberships.filter(role='admin', is_active=True).exists() else '普通用户组',
         'team': {'id': membership.team_id, 'name': membership.team.name, 'code': membership.team.code} if membership else None,
         'teams': teams, 'csrfToken': get_token(request)})
@@ -348,20 +372,35 @@ def dashboard(request):
     history_scores, history_counts = progress_rows(semester, member_ids=[membership.id], by_week=True)
     today = timezone.localdate(now)
     dates = set(Submission.objects.filter(member=membership, is_valid=True).values_list('record_date', flat=True))
+    from .models import CheckinRecord, MakeupPermission
+    permissions = {p.record_date: p for p in MakeupPermission.objects.filter(member=membership, semester=semester)}
+    checkins = dict(CheckinRecord.objects.filter(member=membership).values_list('checkin_date', 'is_makeup'))
+    submission_dates = dates.copy()
+    dates.update(checkins)
 
-    # 获取前后两周的数据（共 21 天）
-    start = timezone.localdate(week.starts_at) - timedelta(days=7)  # 从上周一开始
+    # Show seven past days, today, and the next three days.
+    start = today - timedelta(days=7)
+    weeks = list(semester.weeks.all())
     pulse_days = []
-    for offset in range(21):  # 上周7天 + 本周7天 + 下周7天
+    for offset in range(11):
         day = start + timedelta(days=offset)
-        can_submit = (not week.is_closed and semester.is_active and not semester.archived_at
-                      and week.starts_at <= now < week.ends_at
-                      and timezone.localdate(week.starts_at) <= day < timezone.localdate(week.ends_at)
-                      and semester.starts_on <= day <= min(today, semester.ends_on))
+        day_week = next((w for w in weeks if timezone.localdate(w.starts_at) <= day < timezone.localdate(w.ends_at)), None)
+        permission = permissions.get(day)
+        completed = bool(checkins.get(day) or permission and permission.completed_at)
+        can_submit = bool(membership.pk and day_week and semester.is_active and not semester.archived_at and semester.starts_on <= day <= min(today, semester.ends_on))
+        if day == today:
+            can_submit = can_submit and not day_week.is_closed and day_week.starts_at <= now < day_week.ends_at
+        elif day < today:
+            can_submit = can_submit and day not in dates and not completed
 
         pulse_days.append({
             'date': day.isoformat(),
             'submitted': day in dates,
+            'hasSubmission': day in submission_dates,
+            'checkedIn': day in checkins,
+            'isMakeup': completed,
+            'makeupOpen': bool(permission and not permission.completed_at),
+            'weekId': day_week.pk if day_week else None,
             'isToday': day == today,
             'canSubmit': can_submit
         })
@@ -399,7 +438,12 @@ def members(request):
                          (request.user.is_superuser or (membership.is_admin and member.role == TeamMembership.MEMBER)),
              'can_manage_role': request.user.is_superuser and not member.user.is_superuser,
              'score': scores.get(member.id, 0), 'submissions': counts.get(member.id, 0)}
-            for member in membership.team.memberships.filter(is_active=True).select_related('user')]
+            for member in membership.team.memberships.filter(is_active=True,user__is_active=True).select_related('user')]
+    if request.user.is_superuser and membership.team.currency_enabled:
+        from .models import CurrencyBalance
+        balances = dict(CurrencyBalance.objects.filter(team=membership.team).values_list('member_id', 'balance'))
+        for row in rows:
+            row['currency_balance'] = balances.get(row['id'], 0)
     return JsonResponse({'members': rows, 'team_name': membership.team.name})
 
 
@@ -464,8 +508,8 @@ def submissions(request, submission_id=None, edit=False):
         week_id = int(request.POST.get('week_id', ''))
     except (ValueError, TypeError):
         return api_error('请刷新页面，确认提交周次后重试')
-    if not membership.pk:
-        return api_error("请先作为成员加入团队，再提交训练记录", 403)
+    if not membership.pk or request.user.is_superuser:
+        return api_error("请以团队成员身份提交训练记录", 403)
     from .problem_parser import canonical_problem, get_problem
     try:
         canonical_problem(request.POST.get('problem_url', ''))
@@ -508,19 +552,35 @@ def submissions(request, submission_id=None, edit=False):
             semester = Semester.objects.select_for_update().get(pk=target.semester_id)
             week = Week.objects.select_for_update().get(pk=target.pk)
             now = timezone.now()
-            if (semester.archived_at or not semester.is_active or week.is_closed
-                    or not semester.starts_on <= timezone.localdate(now) <= semester.ends_on
-                    or not week.starts_at <= now < week.ends_at):
+            today = timezone.localdate(now)
+            try:
+                record_date = datetime.strptime(request.POST.get('record_date') or today.isoformat(), '%Y-%m-%d').date()
+            except ValueError:
+                return api_error('提交日期格式无效')
+            historical = submission_id is None and record_date < today
+            if (semester.archived_at or not semester.is_active
+                    or not semester.starts_on <= today <= semester.ends_on):
+                return api_error('当前学期已结束或尚未开放，不能继续提交', 409)
+            if not historical and (week.is_closed or not week.starts_at <= now < week.ends_at):
                 return api_error('该周次已截止或尚未开放，不能继续提交，请刷新页面', 409)
             if (week.starts_at, week.ends_at) != week_bounds(semester, week.number):
                 return api_error('周次日期异常，请联系管理员修复后再提交', 409)
-            try:
-                record_date = datetime.strptime(request.POST.get('record_date') or timezone.localdate(now).isoformat(), '%Y-%m-%d').date()
-            except ValueError:
-                return api_error('提交日期格式无效')
             if not (timezone.localdate(week.starts_at) <= record_date < timezone.localdate(week.ends_at)
-                    and semester.starts_on <= record_date <= min(timezone.localdate(now), semester.ends_on)):
-                return api_error('只能提交本周已开放日期的记录', 409)
+                    and semester.starts_on <= record_date <= min(today, semester.ends_on)):
+                return api_error('提交日期不属于所选周次或尚未开放', 409)
+            from .models import MakeupPermission, CheckinRecord
+            permission = None
+            if historical:
+                locked_member = TeamMembership.objects.select_for_update().get(pk=membership.pk)
+                if not locked_member.is_active:
+                    return api_error('当前团队成员权限已失效', 403)
+                permission = MakeupPermission.objects.select_for_update().filter(member=membership,
+                    semester=semester, record_date=record_date).first()
+                if not permission:
+                    return api_error('请先消耗补签券开放该日期的提交权限', 409)
+                if (permission.completed_at or CheckinRecord.objects.filter(member=membership, checkin_date=record_date).exists()
+                        or Submission.objects.filter(member=membership, record_date=record_date, is_valid=True).exists()):
+                    return api_error('该日期已完成签到或补交，不能重复提交', 409)
             problem = get_problem(request.POST.get('problem_url', ''))
             if submission_id is not None:
                 submission = Submission.objects.select_for_update().filter(pk=submission_id, team=membership.team, member=membership, week=week).first()
@@ -556,10 +616,23 @@ def submissions(request, submission_id=None, edit=False):
                 part.status = SubmissionPart.APPROVED
                 part.points_awarded = score_part(part)
                 part.save(update_fields=['status', 'points_awarded'])
+            if permission:
+                CheckinRecord.objects.create(team=membership.team, member=membership,
+                    checkin_date=record_date, is_makeup=True)
+                permission.completed_at = now
+                permission.save(update_fields=['completed_at'])
             refresh_totals(semester)
-    except Exception:
+            if membership.team.currency_enabled:
+                from .currency_services import settle_weekly_streak,perform_checkin
+                TeamMembership.objects.select_for_update().get(pk=membership.pk)
+                if submission.record_date == today and not CheckinRecord.objects.filter(member=membership,checkin_date=today).exists():
+                    perform_checkin(membership)
+                else:
+                    settle_weekly_streak(membership, submission.record_date)
+    except Exception as exc:
         if stored_file:
             stored_file.delete(save=False)
+        if isinstance(exc,ValueError):return api_error(str(exc),400)
         raise
     return JsonResponse({'ok': True, 'submission': serialize_submission(submission)}, status=201)
 
@@ -569,15 +642,17 @@ def leaderboard(request):
     membership = membership_for(request)
     if not membership:
         return api_error("未加入当前团队", 403)
-    semester = active_semester(membership.team)
-    if not semester:
-        return JsonResponse({"rows": []})
-    scope = request.GET.get("scope", "week")
-    week = active_week(semester) or semester.weeks.order_by("-number").first()
-    rows = leaderboard_rows_for(membership.team, semester, week if scope == "week" else None)
-    for row in rows:
-        row["isCurrent"] = row["memberId"] == membership.id
-    return JsonResponse({"scope": scope, "rows": rows})
+    if request.method != 'GET':
+        return api_error('仅支持 GET', 405)
+    from .rankings import ranking_data
+    scope = request.GET.get('scope', 'checkin')
+    if scope not in {'checkin', 'rating', 'wealth'}:
+        return api_error('请选择签到榜、Rating榜或财富榜')
+    try:
+        return JsonResponse(ranking_data(membership, scope, request.GET.get('platform','codeforces')))
+    except ValueError as exc:
+        return api_error(str(exc))
+
 
 
 @api_login_required
@@ -642,7 +717,7 @@ def export_xlsx(request):
     sheet.append(headers)
     for submission in team.submissions.filter(semester=semester).select_related("member", "week").prefetch_related("parts"):
         by_kind = {part.kind: part for part in submission.parts.all()}
-        sheet.append([submission.member.display_name, submission.week.number, submission.record_date.isoformat(), submission.submitted_at.astimezone().strftime("%Y-%m-%d %H:%M"), "是" if submission.is_valid else "否", by_kind.get("proof").status if by_kind.get("proof") else "", by_kind.get("proof").points_awarded if by_kind.get("proof") else 0, by_kind.get("logic").status if by_kind.get("logic") else "", by_kind.get("logic").points_awarded if by_kind.get("logic") else 0, by_kind.get("blog").status if by_kind.get("blog") else "", by_kind.get("blog").points_awarded if by_kind.get("blog") else 0])
+        sheet.append([submission.member.display_name, submission.week.number, submission.record_date.isoformat(), timezone.localtime(submission.submitted_at).strftime("%Y-%m-%d %H:%M"), "是" if submission.is_valid else "否", by_kind.get("proof").status if by_kind.get("proof") else "", by_kind.get("proof").points_awarded if by_kind.get("proof") else 0, by_kind.get("logic").status if by_kind.get("logic") else "", by_kind.get("logic").points_awarded if by_kind.get("logic") else 0, by_kind.get("blog").status if by_kind.get("blog") else "", by_kind.get("blog").points_awarded if by_kind.get("blog") else 0])
     for row in sheet.iter_rows(min_row=2):
         row[0].data_type = 's'
     for column, value in enumerate(headers, 1):

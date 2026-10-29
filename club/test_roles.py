@@ -126,7 +126,7 @@ class RoleTests(TestCase):
 
     def test_invite_and_registration_cannot_escalate(self):
         client=Client()
-        data={'account':'newuser','password':'password-123','confirm_password':'password-123','is_superuser':True,'is_staff':True,'role':'admin'}
+        data={'grade':0,'account':'newuser','password':'password-123','confirm_password':'password-123','is_superuser':True,'is_staff':True,'role':'admin'}
         self.assertEqual(client.post('/api/auth/register',json.dumps(data),content_type='application/json').status_code,201)
         user=User.objects.get(username='newuser')
         self.assertFalse(user.is_superuser or user.is_staff)

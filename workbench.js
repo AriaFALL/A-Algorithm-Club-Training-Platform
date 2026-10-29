@@ -8,6 +8,7 @@ document.querySelector('#adminView').innerHTML = `
   <div class="workbench-scope panel" id="wbManagedScope" hidden><label>当前管理团队 <select id="wbManagedTeam" aria-label="当前管理团队"></select></label></div>
   <section class="panel workbench-panel" id="wbParserSection" hidden><div class="panel-heading"><div><p class="section-label">PROBLEM PARSER</p><h2>题目解析与 API 配置</h2></div></div>
     <form id="wbParserForm" class="workbench-form"><label>解析模式<select name="mode"><option value="auto">自动解析</option><option value="ai">AI解析</option><option value="smart">智能解析：自动失败后使用AI</option></select></label><label class="workbench-check"><input name="enabled" type="checkbox">启用 AI 调用</label><label>API 地址<input name="base_url" type="url" maxlength="500" placeholder="https://api.example.com/v1"></label><label>调用协议<select name="api_protocol"><option value="chat">Chat Completions（兼容模式）</option><option value="responses">Responses（启用联网搜索）</option></select></label><label>Model<input name="model" maxlength="200" placeholder="模型名称"></label><label>API Key<input name="api_key" type="password" autocomplete="new-password" maxlength="4096" placeholder="留空保留已保存的 Key"><small id="wbKeyHint"></small></label><label class="workbench-check"><input name="clear_key" type="checkbox">清除已保存的 Key</label><div class="workbench-form-actions"><button class="primary-button" type="submit">保存解析配置</button><button class="secondary-button" type="button" id="wbTestParser">测试已保存的 AI 配置</button></div></form><p class="muted workbench-hint">自动解析直接读取网页；AI解析只发送题目网址，所配置服务需支持联网；CPA/Codex 可选择 Responses 协议显式启用联网工具。已有题目不会重复解析。测试会发送一次示例题目请求。</p>
+    <h3>洛谷提交记录查询</h3><form id="wbLuoguQueryForm" class="workbench-form"><label>全站查询 Cookie<input name="cookie" type="password" autocomplete="new-password" maxlength="8192" placeholder="_uid=…; __client_id=…"><small id="wbLuoguCookieHint"></small></label><label class="workbench-check"><input name="clear_cookie" type="checkbox">清除查询 Cookie</label><div><button class="primary-button" type="submit">保存查询配置</button></div></form><p class="muted">统一用于查询成员的公开提交时间，加密保存；受隐私保护的记录不保证可查询。成员无需填写 Cookie。</p>
   </section>
   <section class="panel workbench-panel" id="wbPendingSection" hidden><div class="panel-heading"><div><p class="section-label">TITLE INBOX</p><h2>待处理题目名称</h2></div></div><div id="wbProblemQueue"></div><button class="secondary-button" id="wbProblemsMore" hidden>加载更多题目</button></section>
   <section class="workbench-panel" id="wbReportsSection"><div class="panel-heading"><div><p class="section-label">REPORTS</p><h2>举报处理</h2></div><span class="muted" id="wbReportScope"></span></div><div id="reviewList" class="solution-waterfall"></div><button id="reportsMore" class="secondary-button" hidden>加载更多举报</button></section>
@@ -21,7 +22,7 @@ document.body.insertAdjacentHTML('beforeend', `<div class="modal-backdrop" id="w
 function initWorkbench(me) {
   workbenchProfile = me;
   workbench$('#workbenchDescription').textContent = me.site_admin ? '管理题目解析、举报与团队配置。' : '处理当前管理团队的举报与题名。';
-  ['wbParserSection','wbCreateSection','wbTeamsSection'].forEach(id => { workbench$('#'+id).hidden = !me.site_admin; });
+  ['wbParserSection','wbCreateSection','wbTeamsSection','wbBackupSection','wbPasswordSection'].forEach(id => { workbench$('#'+id).hidden = !me.site_admin; });
   if (!me.can_manage_current) workbench$('#wbPendingSection').hidden = true;
   workbench$('#wbManagedScope').hidden = me.site_admin || !me.is_team_manager;
   if (me.is_team_manager && !me.site_admin) {
@@ -45,7 +46,7 @@ async function loadWorkbench() {
       return;
     }
     const tasks = [loadAdminQueue(), loadPendingProblems(1, version)];
-    if (me.site_admin) tasks.push(loadWorkbenchTeams(version), loadParserConfig(version));
+    if (me.site_admin) tasks.push(loadWorkbenchTeams(version), loadParserConfig(version), loadSystemBackups());
     const results = await Promise.allSettled(tasks);
     for (const result of results) if (result.status === 'rejected') showToast(result.reason.message || '工作台加载失败');
   } catch(error) { showToast(error.message); }
@@ -60,7 +61,10 @@ async function loadWorkbenchTeams(version = workbenchVersion) {
 
 async function loadParserConfig(version = workbenchVersion) {
   const data = await communityRequest('/api/management/parser');
+  const queryConfig = await communityRequest('/api/management/platform-query');
   if (version !== workbenchVersion) return;
+  workbench$('#wbLuoguCookieHint').textContent=queryConfig.has_luogu_cookie ? '已保存，留空保留' : '尚未配置';
+  workbench$('#wbLuoguQueryForm').reset();
   const form = workbench$('#wbParserForm');
   for (const name of ['mode','base_url','model','api_protocol']) form.elements[name].value = data[name];
   form.elements.enabled.checked = data.enabled;
@@ -145,6 +149,10 @@ async function openTeamSettings(id, force = false) {
   const numeric = [['min_submissions','每周提交要求'],['min_score','每周积分要求'],['screenshot_points','截图积分'],['logic_points','题解积分'],['blog_points','Blog积分']];
   host.innerHTML = cleanupScheduleMarkup(data.cleanup, id, Boolean(semester)) + `<form class="workbench-form" data-team-settings-form="${id}"><label>团队名称<input name="name" required maxlength="80" value="${escapeHtml(data.name)}"></label><label>团队码<input name="code" required maxlength="32" value="${escapeHtml(data.code)}"></label><label>新加入密码<input name="join_password" type="password" minlength="8" maxlength="200" autocomplete="new-password" placeholder="留空保留原密码"></label>${semester ? numeric.map(([key,label]) => `<label>${label}<input name="${key}" type="number" min="0" max="100000" required value="${semester[key]}"></label>`).join('') + `<label class="workbench-check"><input name="require_both" type="checkbox" ${semester.require_both ? 'checked' : ''}>提交次数和积分均需达标</label>` : '<p class="muted">当前团队没有活动学期。</p>'}<div class="workbench-form-actions"><button class="primary-button" type="submit">保存团队配置</button></div></form>`;
   host.hidden = false;
+  if (workbenchProfile?.site_admin && window.CurrencyAdminModule) {
+    const currencyPanel=document.createElement('div'); currencyPanel.className='workbench-currency-settings'; host.append(currencyPanel);
+    await window.CurrencyAdminModule.renderConfigPanel(currencyPanel,id);
+  }
 }
 
 workbench$('#adminView').addEventListener('submit', async event => {
@@ -157,7 +165,7 @@ workbench$('#adminView').addEventListener('submit', async event => {
       await loadPendingProblems(); showToast('题名已保存');
     } else {
       const data = Object.fromEntries(new FormData(form));
-      ['min_submissions','min_score','screenshot_points','logic_points','blog_points'].forEach(k => { if (k in data) data[k]=Number(data[k]); });
+      ['min_submissions','min_score','screenshot_points','logic_points','blog_points','daily_checkin_reward'].forEach(k => { if (k in data) data[k]=Number(data[k]); });
       data.require_both = form.elements.require_both?.checked || false;
       await communityRequest(`/api/management/teams/${form.dataset.teamSettingsForm}/settings`,workbenchJSON('PUT',data));
       await loadWorkbenchTeams(); await loadLiveData(); showToast('团队配置已保存');
@@ -237,3 +245,88 @@ setInterval(() => {
     heading.textContent = `${days}天后清理本学期所有内容。`;
   });
 }, 60000);
+
+workbench$('#wbLuoguQueryForm').addEventListener('submit',async event=>{
+ event.preventDefault();const form=event.target,button=form.querySelector('button');button.disabled=true;
+ try{const cookie=form.elements.clear_cookie.checked?'':form.elements.cookie.value;if(!cookie&&!form.elements.clear_cookie.checked){showToast('请输入 Cookie 或勾选清除');return;}await communityRequest('/api/management/platform-query',workbenchJSON('PUT',{cookie}));await loadParserConfig();showToast('洛谷查询配置已保存');}catch(error){showToast(error.message);}finally{button.disabled=false;}
+});
+
+// System-only recovery controls. Operation tokens survive the session reset on restore.
+workbench$('#adminView').insertAdjacentHTML('beforeend', `
+<section class="panel workbench-panel" id="wbBackupSection" hidden>
+  <div class="panel-heading"><div><p class="section-label">BACKUP & RECOVERY</p><h2>备份与恢复</h2></div></div>
+  <p class="muted">备份包含业务数据、系统配置及上传文件，不包含登录会话。文件含敏感资料，请妥善保管；仅可恢复本系统密钥及相同数据库版本的备份。</p>
+  <div class="workbench-form-actions"><button class="primary-button" id="wbCreateBackup">创建完整备份</button><form id="wbImportBackupForm"><label>导入备份文件<input name="file" type="file" accept=".zip,application/zip" required></label><button class="secondary-button" type="submit">上传并校验</button></form></div>
+  <p id="wbBackupStatus" role="status" aria-live="polite"></p><div id="wbBackupList"></div>
+</section>
+<section class="panel workbench-panel" id="wbPasswordSection" hidden>
+  <div class="panel-heading"><div><p class="section-label">ADMIN SECURITY</p><h2>修改管理员密码</h2></div></div>
+  <p class="muted">密码保存并确认成功后，当前账号将强制退出，其他登录会话也会失效。请使用新密码重新登录。</p>
+  <form id="wbAdminPasswordForm" class="workbench-form"><label>当前密码<input name="old_password" type="password" autocomplete="current-password" required></label><label>新密码<input name="new_password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label><label>确认新密码<input name="confirm_password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label><div><button class="primary-button" type="submit">保存密码并退出</button></div><p role="status" id="wbPasswordStatus"></p></form>
+</section>`);
+document.body.insertAdjacentHTML('beforeend', `<div class="modal-backdrop" id="wbRestoreModal" aria-hidden="true"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="wbRestoreTitle"><div class="modal-header"><h2 id="wbRestoreTitle">恢复全部数据</h2><button class="close-button" id="wbRestoreCancel" aria-label="取消恢复">×</button></div><p>恢复将覆盖当前全部业务数据、账号密码与上传文件。系统会先自动备份当前状态，执行期间暂停访问，完成后所有账号需重新登录。请使用备份时的账号密码登录。</p><form id="wbRestoreForm" class="workbench-form"><label>当前管理员密码<input type="password" name="password" autocomplete="current-password" required></label><label>输入“恢复全部数据”确认<input name="confirmation" autocomplete="off" required></label><p id="wbRestoreError" role="alert"></p><div><button class="primary-button" type="submit">确认恢复</button></div></form></section></div>`);
+let systemOperationWatching = false;
+let systemRestoreId = null;
+function setBackupBusy(busy) {
+  workbench$('#wbBackupSection').querySelectorAll('button,input').forEach(el => { el.disabled=busy; });
+}
+async function loadSystemBackups() {
+  if (!workbenchProfile?.site_admin) return;
+  const pending=sessionStorage.getItem('systemOperation');
+  if(pending){watchSystemOperation(pending);return;}
+  const data=await communityRequest('/api/management/backups');
+  workbench$('#wbBackupList').innerHTML=data.backups.map(item=>`<article class="workbench-team"><div><strong>${escapeHtml(item.label)}</strong><p>${escapeHtml(new Date(item.created_at).toLocaleString('zh-CN'))} · ${(item.size/1024/1024).toFixed(2)} MB</p></div><div class="workbench-row-actions"><a class="text-button" href="/api/management/backups/${item.id}">下载</a><button class="text-button" data-system-restore="${item.id}">恢复</button><button class="text-button danger" data-system-delete="${item.id}">删除备份</button></div></article>`).join('') || '<p class="muted">暂无备份。</p>';
+}
+async function watchSystemOperation(id) {
+  if(systemOperationWatching)return;
+  systemOperationWatching=true;sessionStorage.setItem('systemOperation',id);setBackupBusy(true);
+  try {
+    for(;;){
+      let state;
+      try{state=await communityRequest(`/api/management/system-operations/${id}`);}
+      catch(error){if(error.status===404){sessionStorage.removeItem('systemOperation');workbench$('#wbBackupStatus').textContent='操作记录不存在，请核对备份列表及服务日志。';break;}workbench$('#wbBackupStatus').textContent='连接暂时中断，正在查询操作结果，请勿重复操作。';await new Promise(resolve=>setTimeout(resolve,3000));continue;}
+      workbench$('#wbBackupStatus').textContent=state.message;
+      if(state.state==='completed'||state.state==='failed'){
+        sessionStorage.removeItem('systemOperation');
+        if(state.logout){location.replace('/auth.html?notice=restored');return;}
+        if(state.state==='completed')showToast(state.message);
+        break;
+      }
+      await new Promise(resolve=>setTimeout(resolve,1500));
+    }
+  }finally{systemOperationWatching=false;setBackupBusy(false);}
+  await loadSystemBackups();
+}
+workbench$('#wbCreateBackup').onclick=async()=>{
+  setBackupBusy(true);
+  try{const operation=await communityRequest('/api/management/backups',{method:'POST'});await watchSystemOperation(operation.id);}
+  catch(error){workbench$('#wbBackupStatus').textContent=error.message;setBackupBusy(false);}
+};
+workbench$('#wbImportBackupForm').onsubmit=async event=>{
+  event.preventDefault();const form=event.target;setBackupBusy(true);
+  try{const file=form.elements.file.files[0];const data=new FormData();data.append('file',file);const operation=await communityRequest('/api/management/backups/import',{method:'POST',body:data});form.reset();await watchSystemOperation(operation.id);}
+  catch(error){workbench$('#wbBackupStatus').textContent=error.message;setBackupBusy(false);}
+};
+workbench$('#wbBackupList').onclick=async event=>{
+  const button=event.target.closest('button');if(!button)return;
+  if(button.dataset.systemRestore){
+    systemRestoreId=button.dataset.systemRestore;workbench$('#wbRestoreForm').reset();workbench$('#wbRestoreError').textContent='';workbench$('#wbRestoreModal').classList.add('open');workbench$('#wbRestoreModal').setAttribute('aria-hidden','false');workbench$('#wbRestoreForm input').focus();
+  }else if(button.dataset.systemDelete){
+    const confirmed=await confirmWorkbench('删除备份','仅删除该备份文件，当前业务数据保持原样。',null,'请确认该备份已不再需要。');if(!confirmed)return;
+    button.disabled=true;try{await communityRequest(`/api/management/backups/${button.dataset.systemDelete}`,{method:'DELETE'});await loadSystemBackups();}catch(error){showToast(error.message);button.disabled=false;}
+  }
+};
+function closeSystemRestore(){workbench$('#wbRestoreModal').classList.remove('open');workbench$('#wbRestoreModal').setAttribute('aria-hidden','true');workbench$('#wbRestoreForm').reset();systemRestoreId=null;}
+workbench$('#wbRestoreCancel').onclick=closeSystemRestore;
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&systemRestoreId&&!workbench$('#wbRestoreForm button').disabled)closeSystemRestore();});
+workbench$('#wbRestoreForm').onsubmit=async event=>{
+  event.preventDefault();const form=event.target,button=event.submitter;button.disabled=true;workbench$('#wbRestoreCancel').disabled=true;
+  try{const operation=await communityRequest(`/api/management/backups/${systemRestoreId}/restore`,workbenchJSON('POST',Object.fromEntries(new FormData(form))));closeSystemRestore();await watchSystemOperation(operation.id);}
+  catch(error){workbench$('#wbRestoreError').textContent=error.message;}finally{button.disabled=false;workbench$('#wbRestoreCancel').disabled=false;}
+};
+workbench$('#wbAdminPasswordForm').onsubmit=async event=>{
+  event.preventDefault();const form=event.target,button=event.submitter;button.disabled=true;
+  const message=workbench$('#wbPasswordStatus');message.textContent='正在保存并确认密码…';
+  try{const data=await communityRequest('/api/management/password',workbenchJSON('POST',Object.fromEntries(new FormData(form))));if(!data.ok||!data.logout)throw new Error('未收到密码保存确认，请重新核对');form.reset();location.replace('/auth.html?notice=password-changed');}
+  catch(error){message.textContent=error.message;}finally{button.disabled=false;}
+};
