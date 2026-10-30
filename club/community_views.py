@@ -28,10 +28,11 @@ def showcase(request):
     member = membership_for(request)
     if not member:
         return api_error('未加入当前团队', 403)
-    weeks = Week.objects.filter(semester__team=member.team, semester__archived_at__isnull=True).select_related('semester').order_by('-starts_at')
     selected = request.GET.get('week')
     semester = active_semester(member.team)
     current_week = active_week(semester) if semester else None
+    weeks = Week.objects.filter(semester__team=member.team, semester__archived_at__isnull=True,
+                                starts_at__lte=timezone.now()).select_related('semester').order_by('-starts_at')
     if selected:
         if not selected.isdigit():
             return api_error('周次编号无效')
@@ -39,7 +40,7 @@ def showcase(request):
         if not week:
             return api_error('周次不存在', 404)
     else:
-        week = current_week
+        week = current_week or weeks.first()
     items = Submission.objects.filter(team=member.team, week=week, is_valid=True, semester__archived_at__isnull=True, problem__isnull=False)
     grouped = items.values('problem_id', 'problem__url', 'problem__title').annotate(count=Count('id'), latest=Max('submitted_at')).order_by('-latest', '-problem_id')
     page = page_items(request, grouped)
@@ -72,7 +73,7 @@ def problem_submissions(request, problem_id):
     member = membership_for(request)
     if not member:
         return api_error('未加入当前团队', 403)
-    items = Submission.objects.filter(team=member.team, problem_id=problem_id, is_valid=True, semester__archived_at__isnull=True).select_related('problem', 'member', 'week', 'semester').prefetch_related('parts', 'likes', 'reports').order_by('-submitted_at', '-id')
+    items = Submission.objects.filter(team=member.team, problem_id=problem_id, is_valid=True, semester__archived_at__isnull=True).select_related('problem', 'member', 'week', 'semester').prefetch_related('parts', 'likes', 'reports').order_by('-record_date', '-submitted_at', '-id')
     if not items.exists():
         return api_error('该题目不存在或没有可见提交', 404)
     problem = items.first().problem
