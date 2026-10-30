@@ -127,6 +127,22 @@ class CurrencyIntegrationTests(TestCase):
             self.assertEqual(b''.join(response.streaming_content).decode(), svg)
             self.assertEqual(self.config(currency_icon_svg=123).status_code, 400)
 
+    def test_svg_embedded_static_png_and_invalid_embedded_content(self):
+        with tempfile.TemporaryDirectory() as folder, override_settings(MEDIA_ROOT=folder):
+            content = io.BytesIO()
+            Image.new('RGBA', (8, 8), 'gold').save(content, format='PNG')
+            uri = 'data:image/png;base64,' + base64.b64encode(content.getvalue()).decode()
+            svg = f'<svg xmlns="http://www.w3.org/2000/svg"><image href="{uri}"/></svg>'
+            response = self.config(currency_icon_svg=svg)
+            self.assertEqual(response.status_code, 200, response.content)
+            response = self.client.get(response.json()['currency_icon'])
+            self.assertEqual(b''.join(response.streaming_content).decode(), svg)
+            for uri in ['https://example.com/icon.png', 'data:image/svg+xml;base64,PHN2Zy8+',
+                        'data:text/html;base64,PHNjcmlwdC8+', 'data:image/png;base64,YmFk']:
+                with self.subTest(uri=uri):
+                    self.assertEqual(self.config(currency_icon_svg=f'<svg><image href="{uri}"/></svg>').status_code, 400)
+            self.assertEqual(self.config(currency_icon_svg=svg.replace('<image ', '<image onload="alert(1)" ')).status_code, 400)
+
     def test_shop_image_edit_serves_bytes_and_all_lists_use_private_url(self):
         self.config()
         item = ShopItem.objects.get(team=self.team, item_type='makeup_ticket')
