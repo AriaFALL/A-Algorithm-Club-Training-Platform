@@ -185,6 +185,8 @@ def cleanup_semester(semester, *, enforce_schedule=False):
             validate_week_dates(semester)
             semester.weeks.filter(ends_at__lte=timezone.now(), is_closed=False).update(is_closed=True, settled_at=timezone.now())
             refresh_totals(semester)
+            from .solved import archive_submission_credits
+            archive_submission_credits(semester)
             job.pending_files = list(SubmissionPart.objects.filter(submission__semester=semester).exclude(upload='').values_list('upload', flat=True).distinct())
             job.deleted_submissions = semester.submissions.count()
             job.save(update_fields=['pending_files', 'deleted_submissions'])

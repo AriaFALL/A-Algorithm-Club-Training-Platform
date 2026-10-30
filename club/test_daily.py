@@ -122,7 +122,10 @@ class DailyRecordsTests(TestCase):
     def test_historical_submission_needs_permission_today_is_unlimited(self):
         self.assertEqual(self.submit(self.day).status_code,409)
         today=timezone.localdate()
-        for _ in range(3):
+        from .models import Problem
+        for index in range(3):
+            self.problem = Problem.objects.create(identity=f'daily:distinct:{index}',
+                url=f'https://example.com/problem/{index}')
             response=self.submit(today)
             self.assertEqual(response.status_code,201,response.content)
         self.assertEqual(Submission.objects.filter(member=self.author_member).count(),3)

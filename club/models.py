@@ -7,6 +7,17 @@ from django.db import models
 from django.utils import timezone
 
 
+class SolvedProblemCredit(models.Model):
+    """Lifetime evidence, independent of semester, membership and transient sync rows."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='solved_credits')
+    source = models.CharField(max_length=16)
+    problem_key = models.CharField(max_length=1100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['user', 'source', 'problem_key'], name='unique_user_solved_credit')]
+
+
 class ContestCalendarSnapshot(models.Model):
     platform = models.CharField(max_length=20, unique=True)
     contests = models.JSONField(default=list)
@@ -31,7 +42,6 @@ class ExtensionResource(models.Model):
 class Team(models.Model):
     name = models.CharField(max_length=80)
     code = models.CharField(max_length=32, unique=True)
-    join_password_hash = models.CharField(max_length=128)
     cleanup_delay_days = models.PositiveIntegerField(default=30, validators=[MinValueValidator(1)])
     created_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="created_teams")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -84,6 +94,7 @@ class Semester(models.Model):
     cleanup_at = models.DateTimeField(null=True, blank=True)
     archived_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    calendar_managed = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-starts_on"]

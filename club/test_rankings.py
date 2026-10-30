@@ -53,6 +53,25 @@ class RankingTests(TestCase):
         self.assertEqual([r['memberId'] for r in self.rows('rating','leetcode_us')],[self.owner_member.pk])
         self.assertEqual(self.rows('rating','atcoder'),[])
 
+    def test_wealth_excludes_current_senior_grade_including_automatic_promotion(self):
+        from datetime import date
+        from unittest.mock import patch
+        from .models import UserProfile
+        UserProfile.objects.create(user=self.author, grade=4, grade_date=date(2026, 7, 31))
+        UserProfile.objects.create(user=self.owner, grade=3, grade_date=date(2026, 7, 31))
+        CurrencyBalance.objects.create(team=self.team, member=self.author_member, balance=100)
+        CurrencyBalance.objects.create(team=self.team, member=self.owner_member, balance=200)
+        with patch('club.grades.timezone.localdate', return_value=date(2026, 7, 31)):
+            rows = self.rows('wealth')
+            self.assertEqual(rows[0]['memberId'], self.owner_member.pk)
+            self.assertNotIn(self.author_member.pk, [r['memberId'] for r in rows])
+        with patch('club.grades.timezone.localdate', return_value=date(2026, 8, 1)):
+            rows = self.rows('wealth')
+            self.assertNotIn(self.owner_member.pk, [r['memberId'] for r in rows])
+            self.assertTrue(all(r['rank'] == 1 for r in rows))
+            self.assertIn(self.author_member.pk, [r['memberId'] for r in self.rows('solved')])
+        self.assertEqual(CurrencyBalance.objects.get(member=self.author_member).balance, 100)
+
     def test_scope_permissions_and_inactive_members(self):
         self.author_member.is_active=False;self.author_member.save()
         self.client.force_login(self.reader)
@@ -65,3 +84,41 @@ class RankingTests(TestCase):
         self.assertEqual(self.client.get('/api/leaderboard').status_code,403)
         self.client.logout()
         self.assertEqual(self.client.get('/api/leaderboard').status_code,401)
+
+    def test_solved_lifetime_survives_cleanup_sync_and_semester_deletion(self):
+        from .models import ContestParticipation, ContestProblemProgress, SubmissionPart, SolvedProblemCredit
+        from .services import cleanup_semester
+        PlatformBinding.objects.create(user=self.author, platform='codeforces', account='author')
+        contest = ContestParticipation.objects.create(user=self.author, platform='codeforces', account='author',
+            contest_key='123', title='Contest', url='https://example.com/contest',
+            starts_at=self.week.starts_at, ends_at=self.week.ends_at)
+        for label in ['A', 'B']:
+            ContestProblemProgress.objects.create(participation=contest, problem_key=label, label=label,
+                title=label, url='https://example.com/problem', accepted=True)
+        ContestProblemProgress.objects.create(participation=contest, problem_key='C', label='C',
+            title='C', url='https://example.com/problem', accepted=False)
+        item = Submission.objects.create(team=self.team, member=self.author_member, semester=self.semester,
+            week=self.week, problem=self.problem)
+        SubmissionPart.objects.create(submission=item, kind='proof', status='approved', points_awarded=1)
+        self.assertEqual(self.rows('solved')[0]['value'], 3)
+        item.is_valid = False; item.save()
+        self.assertEqual(self.rows('solved')[0]['value'], 2)
+        item.is_valid = True; item.save()
+        cleanup_semester(self.semester)
+        self.assertFalse(Submission.objects.filter(pk=item.pk).exists())
+        self.assertEqual(self.rows('solved')[0]['value'], 3)
+        contest.delete()
+        PlatformBinding.objects.filter(user=self.author).delete()
+        self.semester.delete()
+        self.assertEqual(self.rows('solved')[0]['value'], 3)
+        self.assertEqual(SolvedProblemCredit.objects.filter(user=self.author).count(), 3)
+
+    def test_solved_direct_semester_delete_preserves_distinct_problems(self):
+        from .models import SubmissionPart
+        for _ in range(2):
+            item = Submission.objects.create(team=self.team, member=self.author_member, semester=self.semester,
+                week=self.week, problem=self.problem)
+            SubmissionPart.objects.create(submission=item, kind='proof', status='approved', points_awarded=1)
+        self.assertEqual(self.rows('solved')[0]['value'], 1)
+        self.semester.delete()
+        self.assertEqual(self.rows('solved')[0]['value'], 1)

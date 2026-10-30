@@ -21,7 +21,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
-from django.contrib.auth.hashers import check_password, make_password
+from django.contrib.auth.hashers import check_password
 from functools import wraps
 
 from .models import FileDeletion, ReviewLog, Semester, SemesterMemberTotal, Submission, SubmissionPart, Team, TeamMembership, Week, create_internal_username
@@ -83,6 +83,8 @@ def teams_for(user):
 
 
 def active_semester(team):
+    from .semester_calendar import ensure_current_semester
+    ensure_current_semester(team)
     today = timezone.localdate()
     semester = team.semesters.filter(is_active=True, archived_at__isnull=True, starts_on__lte=today, ends_on__gte=today).first()
     if semester:
@@ -202,13 +204,20 @@ def join_team(request):
     User.objects.select_for_update(no_key=True).get(pk=request.user.pk)
     data = body(request)
     code,name=[str(data.get(key,'')).strip() for key in ('team_code','name')]
-    password=data.get('join_password','')
-    if not isinstance(password,str):return api_error('加入密码格式无效')
-    if not code or not name or len(name) > 40:
-        return api_error('请填写团队码和1至40字团队昵称')
+    if not code or len(code) > 32 or len(name) > 40:
+        return api_error('请填写有效团队码，团队昵称不能超过40字')
     team = Team.objects.filter(code__iexact=code).first()
-    if not team or not check_password(password, team.join_password_hash):
-        return api_error('团队编号或加入密码错误', 403)
+    if not team:
+        return api_error('团队码不存在，请检查后重试', 404)
+    if not name:
+        prior = TeamMembership.objects.filter(user=request.user, is_active=True).order_by('-joined_at').first()
+        base = (prior.display_name if prior else request.user.first_name or request.user.username)[:40]
+        name = base
+        suffix = 2
+        while TeamMembership.objects.filter(team=team, display_name=name).exists():
+            tail = f'-{suffix}'
+            name = base[:40-len(tail)] + tail
+            suffix += 1
     if TeamMembership.objects.filter(team=team).filter(Q(user=request.user) | Q(display_name=name)).exists():
         return api_error('已经加入该团队或昵称已被使用')
     try:
@@ -289,9 +298,8 @@ def create_team(request):
     data = body(request)
     name = str(data.get("team_name", "")).strip()
     code = str(data.get("team_code", "")).strip()
-    join_password = str(data.get("join_password", ""))
-    if not name or not code or len(join_password) < 8:
-        return api_error("请填写团队名称、编号，加入密码至少 8 位")
+    if not name or not code:
+        return api_error("请填写团队名称和团队码")
     if Team.objects.filter(code__iexact=code).exists():
         return api_error("团队编号已存在")
     membership = TeamMembership.objects.filter(user=request.user).first()
@@ -302,18 +310,19 @@ def create_team(request):
         return api_error('团队名称、编号或成员姓名过长')
     try:
         numeric = {}
-        for key, default, upper in [('term_days', 120, 3660), ('min_score', 10, 100000), ('min_submissions', 4, 100000), ('screenshot_points', 1, 10000), ('logic_points', 1, 10000), ('blog_points', 1, 10000)]:
+        for key, default, upper in [('min_score', 10, 100000), ('min_submissions', 4, 100000), ('screenshot_points', 1, 10000), ('logic_points', 1, 10000), ('blog_points', 1, 10000)]:
             value = data.get(key, default)
-            if isinstance(value, bool) or str(value) != str(int(value)) or not (1 if key == 'term_days' else 0) <= int(value) <= upper:
+            if isinstance(value, bool) or str(value) != str(int(value)) or not 0 <= int(value) <= upper:
                 raise ValueError()
             numeric[key] = int(value)
     except (ValueError, TypeError):
-        return api_error('学期天数或积分设置无效')
+        return api_error('积分设置无效')
     if type(data.get('require_both', True)) is not bool:
         return api_error('达标规则无效')
-    team = Team.objects.create(name=name, code=code, join_password_hash=make_password(join_password), created_by=request.user)
-    duration = numeric['term_days']
-    semester = Semester.objects.create(team=team, name=(name + "学期")[:80], starts_on=timezone.localdate(), ends_on=timezone.localdate() + timedelta(days=duration), min_score=numeric["min_score"], min_submissions=numeric["min_submissions"], require_both=data.get("require_both", True), screenshot_points=numeric["screenshot_points"], logic_points=numeric["logic_points"], blog_points=numeric["blog_points"])
+    team = Team.objects.create(name=name, code=code, created_by=request.user)
+    from .semester_calendar import semester_bounds, semester_name
+    start, end = semester_bounds(timezone.localdate())
+    semester = Semester.objects.create(team=team, name=semester_name(start), starts_on=start, ends_on=end, calendar_managed=True, min_score=numeric["min_score"], min_submissions=numeric["min_submissions"], require_both=data.get("require_both", True), screenshot_points=numeric["screenshot_points"], logic_points=numeric["logic_points"], blog_points=numeric["blog_points"])
     build_weeks(semester)
     request.session["team_id"] = team.id
     return JsonResponse({"ok": True, "team": {"id": team.id, "name": team.name, "code": team.code}, "name": display_name})
@@ -368,7 +377,9 @@ def dashboard(request):
         previous_rows = leaderboard_rows_for(membership.team, semester, previous_week)
         previous_rank = next((row["rank"] for row in previous_rows if row["memberId"] == membership.id), None)
     now = timezone.now()
-    remaining_seconds = max(0, int((week.ends_at - now).total_seconds())) if not week.is_closed else 0
+    semester_deadline = timezone.make_aware(datetime.combine(semester.ends_on + timedelta(days=1), datetime.min.time()))
+    week_deadline = min(week.ends_at, semester_deadline)
+    remaining_seconds = max(0, int((week_deadline - now).total_seconds())) if not week.is_closed else 0
     history_scores, history_counts = progress_rows(semester, member_ids=[membership.id], by_week=True)
     today = timezone.localdate(now)
     dates = set(Submission.objects.filter(member=membership, is_valid=True).values_list('record_date', flat=True))
@@ -413,7 +424,7 @@ def dashboard(request):
     return JsonResponse({
         "team": {"id": membership.team_id, "name": membership.team.name},
         "semester": {"id": semester.id, "name": semester.name, "minScore": week.effective_min_score, "minSubmissions": week.effective_min_submissions, "requireBoth": week.effective_require_both, "totalWeeks": semester.weeks.count()},
-        "current_week": {"id": week.id, "number": week.number, "startsAt": week.starts_at.isoformat(), "endsAt": week.ends_at.isoformat(), "closed": week.is_closed, "remainingSeconds": remaining_seconds},
+        "current_week": {"id": week.id, "number": week.number, "startsAt": week.starts_at.isoformat(), "endsAt": week_deadline.isoformat(), "closed": week.is_closed, "remainingSeconds": remaining_seconds},
         "score": score,
         "submissions": count,
 
@@ -429,16 +440,40 @@ def members(request):
         return api_error("未加入当前团队", 403)
     semester = active_semester(membership.team)
     week = active_week(semester) if semester else None
-    scores, _ = progress_rows(semester) if semester else ({}, {})
-    _, counts = progress_rows(semester, week) if week else ({}, {})
+    scores, counts = progress_rows(semester, week) if week else ({}, {})
+    from .models import ContestProblemProgress, PlatformBinding
+    ac_counts = {}
+    submission_ac_counts = {}
+    if week:
+        submission_ac_counts = dict(Submission.objects.filter(
+            team=membership.team, week=week, is_valid=True, problem__isnull=False,
+            parts__kind=SubmissionPart.PROOF, parts__status=SubmissionPart.APPROVED,
+        ).order_by().values('member_id').annotate(total=Count('problem_id', distinct=True))
+            .values_list('member_id', 'total'))
+        user_ids = membership.team.memberships.filter(is_active=True, user__is_active=True,
+                                                     user__is_superuser=False).values_list('user_id', flat=True)
+        bindings = set(PlatformBinding.objects.filter(user_id__in=user_ids)
+                       .values_list('user_id', 'platform', 'account'))
+        accepted = ContestProblemProgress.objects.filter(
+            participation__user_id__in=user_ids, accepted=True,
+            participation__starts_at__gte=week.starts_at,
+            participation__starts_at__lt=week.ends_at,
+        ).values_list('participation__user_id', 'participation__platform', 'participation__account',
+                      'participation__contest_key', 'problem_key').distinct()
+        problems_by_user = {}
+        for user_id, platform, account, contest_key, problem_key in accepted:
+            if (user_id, platform, account) in bindings:
+                problems_by_user.setdefault(user_id, set()).add((platform, contest_key, problem_key))
+        ac_counts = {user_id: len(problems) for user_id, problems in problems_by_user.items()}
     rows = [{'id': member.id, 'name': member.display_name, 'role': member.role, 'team_id': membership.team_id,
              'account': member.user.username if request.user.is_superuser else '',
              'is_system_admin': member.user.is_superuser,
              'can_kick': not member.user.is_superuser and member.user_id != request.user.pk and
                          (request.user.is_superuser or (membership.is_admin and member.role == TeamMembership.MEMBER)),
              'can_manage_role': request.user.is_superuser and not member.user.is_superuser,
-             'score': scores.get(member.id, 0), 'submissions': counts.get(member.id, 0)}
-            for member in membership.team.memberships.filter(is_active=True,user__is_active=True).select_related('user')]
+             'score': scores.get(member.id, 0), 'submissions': counts.get(member.id, 0),
+             'ac_problems': ac_counts.get(member.user_id, 0) + submission_ac_counts.get(member.id, 0)}
+            for member in membership.team.memberships.filter(is_active=True,user__is_active=True,user__is_superuser=False).select_related('user')]
     if request.user.is_superuser and membership.team.currency_enabled:
         from .models import CurrencyBalance
         balances = dict(CurrencyBalance.objects.filter(team=membership.team).values_list('member_id', 'balance'))
@@ -549,6 +584,8 @@ def submissions(request, submission_id=None, edit=False):
             target = Week.objects.filter(pk=week_id, semester__team=membership.team).first()
             if not target:
                 return api_error('该周次不存在或不属于当前团队', 404)
+            # Serialize submissions across this user's teams and semesters.
+            User.objects.select_for_update().get(pk=request.user.pk)
             semester = Semester.objects.select_for_update().get(pk=target.semester_id)
             week = Week.objects.select_for_update().get(pk=target.pk)
             now = timezone.now()
@@ -582,6 +619,11 @@ def submissions(request, submission_id=None, edit=False):
                         or Submission.objects.filter(member=membership, record_date=record_date, is_valid=True).exists()):
                     return api_error('该日期已完成签到或补交，不能重复提交', 409)
             problem = get_problem(request.POST.get('problem_url', ''))
+            duplicates = Submission.objects.filter(member__user_id=request.user.pk, problem=problem)
+            if submission_id is not None:
+                duplicates = duplicates.exclude(pk=submission_id)
+            if duplicates.exists():
+                return api_error('你已提交过这道题目，请编辑或重新提交原记录；如需新建，请先删除原记录', 409)
             if submission_id is not None:
                 submission = Submission.objects.select_for_update().filter(pk=submission_id, team=membership.team, member=membership, week=week).first()
                 if not submission or (not edit and submission.is_valid):
@@ -646,8 +688,8 @@ def leaderboard(request):
         return api_error('仅支持 GET', 405)
     from .rankings import ranking_data
     scope = request.GET.get('scope', 'checkin')
-    if scope not in {'checkin', 'rating', 'wealth'}:
-        return api_error('请选择签到榜、Rating榜或财富榜')
+    if scope not in {'checkin', 'rating', 'solved', 'wealth'}:
+        return api_error('请选择签到榜、Rating榜、过题榜或财富榜')
     try:
         return JsonResponse(ranking_data(membership, scope, request.GET.get('platform','codeforces')))
     except ValueError as exc:

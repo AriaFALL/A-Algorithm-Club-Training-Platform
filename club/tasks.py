@@ -13,10 +13,14 @@ from .services import build_weeks, cleanup_semester, settle_week, validate_week_
 @shared_task
 def settle_and_cleanup():
     now = timezone.now()
+    from .semester_calendar import ensure_current_semester
+    from .models import Team
+    for team in Team.objects.filter(semesters__calendar_managed=True).distinct():
+        ensure_current_semester(team)
     purge_files()
     Problem.objects.filter(status__in=['pending', 'running'], requested_at__lt=now - timedelta(minutes=10)).update(status='failed', error='任务超时，请手动重新解析')
     blocked_semesters = []
-    for semester in Semester.objects.filter(is_active=True, archived_at__isnull=True):
+    for semester in Semester.objects.filter(Q(is_active=True) | Q(calendar_managed=True), archived_at__isnull=True):
         build_weeks(semester)
         try:
             validate_week_dates(semester)

@@ -34,6 +34,7 @@ urlpatterns = [
     path("me", views.me),
     path("profile", profile_views.profile),
     path("profile/avatar", profile_views.avatar),
+    path("members/<int:member_id>/avatar", profile_views.avatar),
     path("profile/platforms/<str:platform>", profile_views.platform_binding),
     path("dashboard", views.dashboard),
     path("daily-challenges", daily_views.daily_links),

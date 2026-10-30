@@ -1,0 +1,9 @@
+.segmented,.segmented .segment{touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.auth-tabs,.auth-tabs [data-auth-tab],.sidebar .nav-item{touch-action:pan-x;user-select:none;-webkit-user-select:none}
+.glass-dragging,.glass-dragging button{cursor:grabbing!important}
+.segmented .segment.active{background:transparent!important;box-shadow:none!important}
+.segmented .segment.active::after{display:none!important}
+.glass-dragging .segment-indicator,.glass-dragging .auth-glass-indicator,.sidebar.glass-dragging .menu-glass-indicator{transition:none!important}
+.glass-dragging .segment-indicator,.glass-dragging .auth-glass-indicator{backdrop-filter:blur(20px) saturate(155%)}
+.sidebar.glass-dragging .menu-glass-surface{transform:scale(.99,1.025);transition:transform .1s}
+@media(prefers-reduced-motion:reduce){.sidebar.glass-dragging .menu-glass-surface{transform:none;transition:none}}

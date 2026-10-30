@@ -12,11 +12,11 @@ import requests
 from bs4 import BeautifulSoup
 
 PLATFORMS = {
-    'codeforces': {'name': 'Codeforces', 'short': 'CF', 'hint': 'Handle'},
+    'codeforces': {'name': 'Codeforces', 'short': 'CF', 'hint': '用户名'},
     'atcoder': {'name': 'AtCoder', 'short': 'AT', 'hint': '用户名'},
     'nowcoder': {'name': '牛客', 'short': 'NC', 'hint': '个人主页中的数字 UID'},
     'luogu': {'name': '洛谷', 'short': 'LG', 'hint': '数字 UID 或用户名'},
-    'leetcode': {'name': 'LeetCode', 'short': 'LC', 'hint': '国际站用户名；中国站填写 cn:用户名'},
+    'leetcode': {'name': 'LeetCode', 'short': 'LC', 'hint': '国际站 ID；中国站填写 cn:ID'},
 }
 HOSTS = {'codeforces.com', 'atcoder.jp', 'kenkoooo.com', 'ac.nowcoder.com',
          'www.luogu.com.cn', 'leetcode.cn', 'leetcode.com', 'raw.githubusercontent.com', 'www.nowcoder.com'}

@@ -11,6 +11,34 @@ class OwnSubmissionTests(TestCase):
     image = fixtures.CommunityTests.image
     submit = fixtures.CommunityTests.submit
 
+    def test_duplicate_problem_blocked_even_when_rejected_then_allowed_after_delete(self):
+        item = self.submit()
+        for valid in (True, False):
+            item.is_valid = valid
+            item.save(update_fields=['is_valid'])
+            with patch('club.problem_parser.get_problem', return_value=self.problem):
+                response = self.client.post('/api/submissions', {'week_id': self.week.pk,
+                    'problem_url': fixtures.URL + '/?from=test', 'proof': self.image()})
+            self.assertEqual(response.status_code, 409, response.content)
+            self.assertIn('已提交过', response.json()['error'])
+        self.assertEqual(Submission.objects.filter(member=self.author_member).count(), 1)
+        response = self.client.delete(f'/api/submissions/{item.id}', json.dumps({'version':1}), content_type='application/json')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.submit()
+
+    def test_edit_cannot_change_to_another_existing_problem(self):
+        item = self.submit()
+        from .models import Problem
+        other_problem = Problem.objects.create(identity='test:other', url='https://example.com/problem/other')
+        Submission.objects.create(team=self.team, member=self.author_member, semester=self.semester,
+                                  week=self.week, problem=other_problem)
+        with patch('club.problem_parser.get_problem', return_value=other_problem):
+            response = self.client.post(f'/api/submissions/{item.id}/edit', {'week_id':self.week.pk,
+                'version':item.version, 'problem_url':other_problem.url})
+        self.assertEqual(response.status_code, 409, response.content)
+        item.refresh_from_db()
+        self.assertEqual(item.problem_id, self.problem.id)
+
     def test_edit_reuses_proof_and_recalculates_without_new_count(self):
         item = self.submit()
         original = item.parts.get(kind='proof').upload.name

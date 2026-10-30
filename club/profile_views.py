@@ -132,8 +132,18 @@ def change_password(request):
 
 @api_login_required
 @require_http_methods(['GET', 'HEAD'])
-def avatar(request):
-    personal = UserProfile.objects.filter(user=request.user).first()
+def avatar(request, member_id=None):
+    user = request.user
+    if member_id is not None:
+        viewer = membership_for(request)
+        if not viewer:
+            raise Http404
+        member = TeamMembership.objects.filter(pk=member_id, team=viewer.team,
+            is_active=True, user__is_active=True).first()
+        if not member:
+            raise Http404
+        user = member.user
+    personal = UserProfile.objects.filter(user=user).first()
     if not personal or not personal.avatar:
         raise Http404
     try:

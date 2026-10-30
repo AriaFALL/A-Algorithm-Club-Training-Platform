@@ -1,0 +1,183 @@
+/* Preview skin: navigation and dashboard only. */
+.sidebar{width:232px!important;background:rgba(247,250,255,.88)!important;backdrop-filter:blur(28px) saturate(140%);border-right:1px solid #D9E5F7!important;padding:30px 18px!important;box-shadow:4px 0 30px #1C4FAD10!important}
+.sidebar .brand{padding:0 10px 32px;gap:12px}.sidebar .brand-mark{background:#245EC0;border-radius:15px;box-shadow:0 6px 14px #245EC030;color:white}.sidebar .brand-name{color:#203654;font-size:16px}.sidebar .brand-subtitle{color:#65758E;font-size:11px;margin-top:5px}
+.sidebar .eyebrow{color:#65758E;font-size:10px;letter-spacing:.08em}.sidebar .team-button{background:#FFFFFFb8;border:1px solid #fff;border-radius:14px;padding:13px 10px;box-shadow:0 4px 18px #1C4FAD10}.sidebar .team-avatar{background:#E8F1FF;color:#245EC0;border-radius:10px}.sidebar .team-button-copy strong{color:#203654}.sidebar .team-button-copy small{color:#65758E}
+.sidebar .nav-list{display:flex;flex-direction:column;gap:6px;margin-top:26px;position:relative}.sidebar .nav-item{font-size:13px!important;font-weight:500;color:#65758E;border-radius:12px;min-height:44px;padding:12px 14px;gap:13px;transition:background .18s,color .18s,transform .18s;isolation:isolate}.sidebar .nav-item.active{background:linear-gradient(135deg,#fff,#E8F1FF)!important;color:#245EC0!important;box-shadow:0 3px 12px #1C4FAD1a,inset 0 1px 0 white;border:1px solid #D9E5F7}.sidebar .nav-item:hover{background:#E8F1FF;color:#245EC0;transform:translateX(2px)}.sidebar .nav-icon{font-size:18px!important;width:20px;text-align:center}.sidebar .nav-indicator{display:none}.sidebar .sidebar-note{border-top:1px solid #D9E5F7;color:#65758E;padding:20px 10px 0;font-size:10px}.sidebar .team-menu{z-index:50}
+body:has(#dashboardView.active){background:#F7FAFF}.main-content{margin-left:232px!important;width:calc(100% - 232px)!important}
+body:has(#dashboardView.active) .main-content{padding:0 42px 40px;background:radial-gradient(ellipse at 90% 4%,#E8F1FF 0,transparent 48%),#F7FAFF}
+body:has(#dashboardView.active) .topbar{height:82px;border-bottom:1px solid #D9E5F7;background:transparent}
+#dashboardView{--ink:#203654;--muted:#65758E;--teal:#245EC0;--teal-dark:#1C4FAD;--teal-soft:#E8F1FF;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;padding-top:30px;max-width:none;width:100%;margin:0;container-type:inline-size}
+#dashboardView .atlas-hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,1.1fr);gap:36px;align-items:center;margin-bottom:26px;min-height:310px}
+#dashboardView .atlas-copy{padding:10px 0;min-width:0}#dashboardView .welcome-row{display:flex;flex-direction:column;align-items:flex-start;gap:22px;margin:0}
+#dashboardView .welcome-row h1{font-family:inherit!important;font-size:clamp(28px,2.5vw,40px)!important;font-weight:650!important;line-height:1.4;letter-spacing:-.04em;max-width:400px;color:#203654;margin:13px 0 16px}
+#dashboardView .kicker{font-size:11px;color:#65758E;letter-spacing:.02em;font-weight:600}#dashboardView .welcome-row .muted{font-size:12px;line-height:1.7;color:#65758E}
+#dashboardView .primary-button{width:auto!important;border:1px solid #245EC0;border-radius:13px;background:linear-gradient(150deg,#6B9BE6,#245EC0)!important;padding:13px 23px;color:white;box-shadow:0 6px 18px #245EC02b,inset 0 1px 0 #FFFFFF45;font-size:13px;transition:transform .18s,box-shadow .18s}
+#dashboardView .primary-button:hover{transform:translateY(-2px);box-shadow:0 10px 24px #245EC03b}#dashboardView .primary-button:active{transform:scale(.98)}
+#dashboardView .atlas-quickline{margin-top:25px;gap:16px;font-size:10px;color:#65758E}
+#dashboardView .atlas-stage{position:relative;height:306px;min-height:306px;border-radius:26px;overflow:hidden;background:linear-gradient(135deg,#E8F1FF,#D9E5F7 65%,#D9E5F7)!important;border:1px solid #fff;box-shadow:0 16px 40px #65758E16,inset 0 1px 0 white;color:#203654;transform:none}
+#dashboardView .stage-header{position:absolute;top:23px;left:26px;right:26px;color:#65758E;font-size:9px;letter-spacing:.12em}
+#dashboardView .stage-title{position:absolute;top:65px;left:28px;font-size:22px;color:#65758E;line-height:1;font-weight:400}#dashboardView #stageScore{font-size:64px;font-weight:650;letter-spacing:-.06em;color:#245EC0}
+#dashboardView .stage-caption{position:absolute;top:147px;left:30px;color:#65758E;font-size:11px;line-height:1.8}#dashboardView .stage-caption strong{font-size:13px;color:#1C4FAD}
+#dashboardView .stage-float{position:absolute;background:rgba(255,255,255,.68);backdrop-filter:blur(18px) saturate(160%);border:1px solid #FFFFFFdd;box-shadow:0 8px 24px #65758E12,inset 0 1px 0 white;border-radius:17px;padding:15px 18px;color:#203654}
+#dashboardView .stage-float-a{top:auto;bottom:22px;left:25px;right:25px;width:auto;min-height:65px}#dashboardView .stage-float-b{top:64px;right:24px;left:auto;bottom:auto;width:130px;min-height:90px}
+#dashboardView .float-label{font-size:9px;color:#65758E}#dashboardView .stage-float strong{font-size:13px;color:#1C4FAD;line-height:1.7}#dashboardView .stage-float small{font-size:10px;color:#6B9BE6}
+#dashboardView .stage-grid{opacity:.2;right:20px;bottom:105px;width:45%}#dashboardView .stage-path{display:none}#dashboardView .stage-orbit{border:1px solid #FFFFFF9c;opacity:.8;pointer-events:none}#dashboardView .orbit-a{width:280px;height:280px;right:-100px;top:40px;left:auto}#dashboardView .orbit-b{width:340px;height:340px;right:-130px;top:10px;left:auto}#dashboardView .stage-sheen{background:linear-gradient(140deg,#FFFFFF50,transparent 60%)}
+#dashboardView .metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;padding:9px 0;background:white;border:1px solid #E8F1FF;border-radius:20px;box-shadow:0 5px 20px #1C4FAD06;margin:20px 0 24px}
+#dashboardView .metric-card{background:transparent!important;border:0!important;border-right:1px solid #E8F1FF!important;border-radius:0!important;box-shadow:none!important;min-height:130px;padding:18px 22px;transform:none!important}#dashboardView .metric-card:last-child{border-right:0!important}#dashboardView .metric-top{font-size:11px;color:#65758E}#dashboardView .metric-value{font-size:28px;font-weight:650;color:#203654;margin:15px 0 12px}#dashboardView .metric-value small{font-size:12px;font-weight:400;color:#6B9BE6}#dashboardView .metric-foot{font-size:10px;color:#65758E}#dashboardView .metric-icon{background:none;color:#6B9BE6}#dashboardView .progress-track{height:4px;background:#E8F1FF}#dashboardView .progress-track span{background:#6B9BE6}
+#dashboardView .pulse-panel{display:grid;grid-template-columns:210px minmax(0,1fr);gap:18px;padding:24px;background:#E8F1FF;border:1px solid #D9E5F7;border-radius:20px;box-shadow:inset 0 1px 0 #fff;overflow:hidden}#dashboardView .pulse-panel:before,#dashboardView .pulse-panel:after{display:none}#dashboardView .pulse-intro{gap:12px}#dashboardView .pulse-orbit{display:none}#dashboardView .section-label{font-size:9px;letter-spacing:.1em;color:#6B9BE6}#dashboardView .pulse-intro h2{font-size:17px;color:#203654;margin:8px 0}#dashboardView .pulse-copy{font-size:11px;line-height:1.7;color:#65758E}#dashboardView .pulse-track{min-width:0;width:100%}#dashboardView .pulse-detail{grid-column:1/-1;border-top:1px solid #D9E5F7;padding-top:16px;color:#65758E}#dashboardView .pulse-detail strong{font-size:12px}#dashboardView .pulse-streak{font-size:11px}
+#dashboardView .content-grid{gap:22px;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}#dashboardView .panel{background:#fff!important;border:1px solid #D9E5F7!important;border-radius:20px;padding:24px;box-shadow:0 4px 18px #1C4FAD05!important}#dashboardView .panel h2{font-size:17px;color:#203654}#dashboardView .panel .queue-empty{padding:36px 10px;color:#6B9BE6;font-size:12px}#dashboardView .text-button{color:#245EC0;font-size:11px}#dashboardView .leader-row{background:transparent;border-radius:10px}#dashboardView .leaderboard-footer{background:#F7FAFF;border-radius:10px}
+.sidebar button:focus-visible,#dashboardView button:focus-visible{outline:3px solid #6B9BE6;outline-offset:3px}
+@media(max-width:1150px){body:has(#dashboardView.active) .main-content{padding-left:26px;padding-right:26px}#dashboardView .atlas-hero{gap:22px;grid-template-columns:1fr 1fr}#dashboardView .stage-float-b{width:105px;padding:12px}#dashboardView .metric-card{padding:16px 14px}#dashboardView .pulse-panel{grid-template-columns:170px minmax(0,1fr)}}
+@media(max-width:950px){#dashboardView .atlas-hero{grid-template-columns:1fr}#dashboardView .welcome-row h1{max-width:none;font-size:30px!important}#dashboardView .welcome-row{gap:14px}#dashboardView .atlas-stage{height:280px;min-height:280px}#dashboardView .metric-grid{grid-template-columns:1fr 1fr}#dashboardView .metric-card:nth-child(2){border-right:0!important}#dashboardView .content-grid{grid-template-columns:1fr}#dashboardView .pulse-panel{grid-template-columns:1fr}}
+@media(max-width:760px){.sidebar{width:64px!important;padding:20px 7px!important}.sidebar .brand{padding:0 5px 24px}.sidebar .brand-mark{width:36px;height:36px}.sidebar .team-switcher,.sidebar .brand>div:last-child{display:none}.sidebar .nav-item{font-size:0!important;padding:11px 8px;justify-content:center}.sidebar .nav-list{gap:8px;margin-top:4px}.sidebar .sidebar-note{font-size:0;padding:15px 4px}.main-content{margin-left:64px!important;width:calc(100% - 64px)!important}body:has(#dashboardView.active) .main-content{padding:0 15px 26px}#dashboardView{padding-top:20px}#dashboardView .welcome-row h1{font-size:26px!important}#dashboardView .atlas-quickline{flex-wrap:wrap;gap:10px}#dashboardView .stage-float-b{width:95px;right:16px}#dashboardView .stage-title{left:20px}#dashboardView #stageScore{font-size:54px}#dashboardView .stage-caption{left:20px}#dashboardView .pulse-panel{padding:18px}#dashboardView .metric-card{padding:15px 12px}#dashboardView .metric-value{font-size:24px}#dashboardView .panel{padding:18px}}
+@media(prefers-reduced-transparency:reduce){.sidebar,#dashboardView .stage-float{backdrop-filter:none;background:#F7FAFF!important}}
+/* Reset inherited decorative positioning within the redesigned stage. */
+#dashboardView .atlas-stage::before,#dashboardView .atlas-stage::after{display:none}
+#dashboardView .stage-title{margin:0;padding:0;bottom:auto;right:auto;height:72px;display:flex;align-items:baseline;gap:8px;transform:none}
+#dashboardView .stage-caption{margin:0;padding:0;bottom:auto;right:auto;transform:none}
+#dashboardView .stage-float-a{height:78px;min-height:0;box-sizing:border-box}
+#dashboardView .stage-float-b{height:auto;max-height:115px;box-sizing:border-box}
+#dashboardView .stage-float-a{height:64px;bottom:16px;padding:9px 18px}
+#dashboardView .stage-caption{top:142px;line-height:1.5}
+
+/* Approved reference palette and floating navigation. */
+.sidebar,#dashboardView{--ink:#203654;--ink-strong:#203654;--muted:#65758E;--line:#D9E5F7;--teal:#245EC0;--teal-dark:#1C4FAD;--teal-soft:#E8F1FF;--blue:#6B9BE6}
+.sidebar{left:16px!important;top:16px!important;bottom:16px!important;width:204px!important;height:calc(100dvh - 32px)!important;box-sizing:border-box;border:1px solid #D9E5F7!important;border-radius:24px!important;padding:22px 14px!important;background:rgba(255,255,255,.88)!important;box-shadow:0 8px 28px #2036540d,inset 0 1px 0 #fff!important;overflow-y:auto}
+.sidebar .brand{padding:0 7px 24px;gap:10px}.sidebar .brand-mark{width:34px;height:34px;border-radius:12px;background:#245EC0}.sidebar .brand-name{font-size:14px}.sidebar .brand-subtitle{font-size:10px}
+.sidebar .nav-list{gap:4px;margin-top:20px}.sidebar .nav-item{font-size:12px!important;min-height:40px;padding:10px 12px;border-radius:11px;gap:10px}.sidebar .nav-item.active{background:#E8F1FF!important;color:#245EC0!important;border-color:#D9E5F7}.sidebar .nav-item:hover{background:#F7FAFF;color:#1C4FAD}.sidebar .team-button{padding:10px 8px;border-color:#D9E5F7}.sidebar .sidebar-note{padding-top:15px}
+.main-content{margin-left:240px!important;width:calc(100% - 240px)!important}
+body:has(#dashboardView.active),body:has(#dashboardView.active) .main-content{background:#F7FAFF!important}
+.sidebar,.sidebar *,.sidebar *::before,.sidebar *::after,#dashboardView,#dashboardView *,#dashboardView *::before,#dashboardView *::after{background-image:none!important}
+#dashboardView .atlas-stage,#dashboardView .pulse-panel{background:#E8F1FF!important;border-color:#D9E5F7}
+#dashboardView .primary-button{background:#245EC0!important;border-color:#245EC0;color:#FFFFFF}
+#dashboardView .primary-button:hover{background:#1C4FAD!important;border-color:#1C4FAD}
+#dashboardView .stage-title,#dashboardView #stageScore{color:#245EC0}
+#dashboardView .stage-caption strong,#dashboardView .stage-float strong,#dashboardView .panel h2,#dashboardView .welcome-row h1,#dashboardView .metric-value{color:#203654}
+#dashboardView .stage-header,#dashboardView .stage-caption,#dashboardView .float-label,#dashboardView .stage-float small,#dashboardView .pulse-copy,#dashboardView .metric-top,#dashboardView .metric-foot,#dashboardView .section-label{color:#65758E}
+#dashboardView .metric-grid,#dashboardView .panel{background:#FFFFFF!important;border-color:#D9E5F7!important}
+#dashboardView .progress-track{background:#D9E5F7}#dashboardView .progress-track span{background:#245EC0}
+/* Neutral white reflection is the only gradient, confined to the glass light layer. */
+#dashboardView .stage-sheen{background-image:linear-gradient(140deg,rgba(255,255,255,.3),rgba(255,255,255,0) 60%)!important}
+@media(max-width:760px){.sidebar{left:8px!important;top:10px!important;bottom:10px!important;width:58px!important;height:calc(100dvh - 20px)!important;border-radius:18px!important;padding:18px 5px!important}.sidebar .brand{padding:0 5px 20px}.sidebar .brand-mark{width:32px;height:32px}.sidebar .nav-item{font-size:0!important;padding:10px 7px;min-height:40px}.sidebar .nav-list{gap:5px;margin-top:4px}.main-content{margin-left:76px!important;width:calc(100% - 76px)!important}}
+.sidebar{min-height:0!important;scrollbar-width:none}.sidebar::-webkit-scrollbar{display:none}
+/* Desktop floating navigation: 204px × 1.2 ≈ 245px. */
+@media(min-width:761px){.sidebar{width:245px!important}.main-content{margin-left:281px!important;width:calc(100% - 281px)!important}}
+/* Reference palette v2: glacier blue, ivory and champagne accents. */
+.sidebar,#dashboardView{--ink:#203654;--ink-strong:#203654;--muted:#65758E;--line:#D5E5FB;--teal:#245EC0;--teal-dark:#245EC0;--teal-soft:#DCEAFF;--blue:#245EC0;--gold:#A76E10;--gold-soft:#FFF4D4}
+body:has(#dashboardView.active),body:has(#dashboardView.active) .main-content{background:#F6F9FF!important}
+.sidebar{background:rgba(255,253,248,.94)!important;border-color:#D5E5FB!important}
+.sidebar .brand-name,.sidebar .team-button-copy strong{color:#203654}.sidebar .brand-subtitle,.sidebar .eyebrow,.sidebar .nav-item,.sidebar .team-button-copy small{color:#65758E}
+.sidebar .team-button{background:#FFFFFF;border-color:#D5E5FB;box-shadow:0 3px 12px #20365408}
+.sidebar .team-avatar,.sidebar .nav-item.active{background:#DCEAFF!important;color:#245EC0!important;border-color:#D5E5FB}
+.sidebar .nav-item:hover{background:#F1EEE8;color:#203654}.sidebar .sidebar-note{border-color:#F1EEE8;color:#777872}
+body:has(#dashboardView.active) .topbar{border-color:#D5E5FB}
+#dashboardView .atlas-stage{background:#DCEAFF!important;border-color:#D5E5FB}
+#dashboardView .pulse-panel{background:#FFFDF8!important;border-color:#F1EEE8}
+#dashboardView .pulse-detail{border-color:#F1EEE8;color:#65758E}
+#dashboardView .metric-grid{background:#FFFFFF!important;border-color:#D5E5FB!important}
+#dashboardView .metric-card{border-right-color:#F1EEE8!important}
+#dashboardView .metric-card:nth-child(2){background:#FFFDF8!important}
+#dashboardView .metric-card:nth-child(4){background:#FFFDF8!important}
+#dashboardView .panel{background:#FFFDF8!important;border-color:#F1EEE8!important}
+#dashboardView .stage-float{background:rgba(255,253,248,.86);border-color:#FFFFFF}
+#dashboardView .stage-float-b{background:rgba(255,244,212,.84);border-color:#FFFDF8}
+#dashboardView .stage-float-b strong,#dashboardView .stage-float-b .float-label{color:#A76E10}
+#dashboardView .stage-title{color:#65758E}#dashboardView #stageScore{color:#245EC0}
+#dashboardView .primary-button,#dashboardView .primary-button:hover{background:#245EC0!important;border-color:#245EC0}
+#dashboardView .primary-button:hover{box-shadow:0 8px 20px #20365426}
+#dashboardView .progress-track{background:#D5E5FB}#dashboardView .progress-track span{background:#245EC0}
+#dashboardView .leaderboard-footer{background:#DCEAFF;color:#203654}
+#dashboardView .segmented{background:#F1EEE8}#dashboardView .segmented .active{background:#FFFFFF;color:#203654}
+#dashboardView .leader-rank.top{background:#FFF4D4;color:#A76E10}
+#dashboardView .metric-icon.gold,#dashboardView .metric-icon.warm{background:#FFF4D4;color:#A76E10}
+#dashboardView .metric-foot,#dashboardView .pulse-streak,#dashboardView .atlas-quickline{color:#777872}
+.sidebar button:focus-visible,#dashboardView button:focus-visible{outline-color:#245EC0}
+@media(prefers-reduced-transparency:reduce){.sidebar,#dashboardView .stage-float{background:#FFFDF8!important;backdrop-filter:none}}
+
+/* Topbar balance uses the approved neutral colors at every viewport width. */
+.topbar .currency-button,.topbar .currency-button:hover{background:#F1EEE8!important;background-image:none!important;color:#777872!important;box-shadow:none}
+.topbar .currency-button strong{color:inherit}
+/* Compact dashboard summaries; full views remain available from their links. */
+#dashboardView .content-grid>.panel{height:264px;min-height:0;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden}
+#dashboardView .content-grid .panel-heading{flex-shrink:0}
+#dashboardView #submissionList,#dashboardView #leaderboardList{min-height:0;overflow:auto;flex:1}
+#dashboardView .content-grid .queue-empty{padding:20px 8px}
+#dashboardView .content-grid .submission-row{min-height:52px;padding:10px 0}
+#dashboardView .leaderboard-panel .segmented{flex-shrink:0;margin-bottom:12px}
+#dashboardView .rating-platform-filter{flex-shrink:0}
+.sidebar .brand-name{white-space:nowrap;font-size:14px}
+/* Roomier desktop overview, aligned with the floating navigation bottom. */
+@media(min-width:1151px){
+ body:has(#dashboardView.active) .main-content{padding-bottom:16px}
+ #dashboardView.active{display:flex;flex-direction:column;min-height:calc(100dvh - 98px);box-sizing:border-box}
+ #dashboardView .atlas-hero{min-height:340px;flex-shrink:0}
+ #dashboardView .atlas-stage{height:340px;min-height:340px}
+ #dashboardView .welcome-row h1{font-size:clamp(34px,2.7vw,44px)!important;max-width:460px}
+ #dashboardView .welcome-row .muted{font-size:13px}
+ #dashboardView .primary-button{font-size:14px;padding:15px 25px}
+ #dashboardView .atlas-quickline{font-size:11px}
+ #dashboardView .pulse-panel{min-height:180px;box-sizing:border-box;flex-shrink:0;padding:28px}
+ #dashboardView .pulse-intro h2,#dashboardView .panel h2{font-size:19px}
+ #dashboardView .pulse-copy{font-size:12px}
+ #dashboardView .metric-grid{min-height:164px;flex-shrink:0}
+ #dashboardView .metric-card{padding:22px 24px}
+ #dashboardView .metric-top{font-size:12px}
+ #dashboardView .metric-value{font-size:32px}
+ #dashboardView .metric-foot{font-size:11px}
+ #dashboardView .content-grid{flex:1;min-height:280px;align-items:stretch}
+ #dashboardView .content-grid>.panel{height:auto;min-height:280px;padding:28px}
+ #dashboardView .leader-row{min-height:64px}
+}
+/* Stable score sizing relative to its own Atlas panel. */
+#dashboardView .atlas-stage{container-type:inline-size}
+#dashboardView .atlas-stage .stage-title{font-size:clamp(20px,7cqi,28px);height:auto;gap:8px;transform:none!important;animation:none!important;white-space:nowrap;line-height:1.15;font-variant-numeric:tabular-nums}
+#dashboardView .atlas-stage #stageScore{font-size:clamp(36px,16cqi,64px);line-height:1.15}
+#dashboardView .atlas-stage .stage-title>span:last-child{font-size:clamp(20px,7cqi,28px);color:#65758E}
+/* Two-digit calendar days; retain full dates in accessible labels. */
+#dashboardView .pulse-track .pulse-line{background:#D5E5FB}
+#dashboardView .pulse-track .pulse-week span{background:#FFFFFF;border-color:#D5E5FB;color:#65758E;font-size:12px;font-variant-numeric:tabular-nums}
+#dashboardView .pulse-track .pulse-week.is-complete span{background:#245EC0;border-color:#245EC0;color:#FFFFFF}
+#dashboardView .pulse-track .pulse-week.is-current:not(.is-selected) span{background:#FFF4D4;border-color:#A76E10;color:#A76E10}
+#dashboardView .pulse-track .pulse-week:hover span{background:#DCEAFF;border-color:#245EC0;color:#245EC0}
+#dashboardView .pulse-track .pulse-week.is-selected span{background:#203654;border-color:#203654;color:#FFFFFF;box-shadow:0 0 0 5px #D5E5FB}
+#dashboardView .pulse-track .pulse-week:focus-visible{outline:2px solid #245EC0;outline-offset:5px;border-radius:50%}
+/* Consistent native SVG navigation icons, including dynamically inserted shop. */
+.sidebar .nav-icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:0 0 22px;color:#65758E;transition:color .18s ease,transform .18s ease}
+.sidebar .nav-icon svg{display:block;width:20px;height:20px;overflow:visible}
+.sidebar .nav-item.active .nav-icon{color:#245EC0}
+.sidebar .nav-item:hover .nav-icon{color:#245EC0;transform:translateY(-1px)}
+.sidebar .nav-item:active .nav-icon{transform:scale(.94)}
+@media(max-width:760px){.sidebar .nav-icon{width:22px;height:22px}.sidebar .nav-icon svg{width:21px;height:21px}}
+@media(prefers-reduced-motion:reduce){.sidebar .nav-icon{transition:none}.sidebar .nav-item:hover .nav-icon,.sidebar .nav-item:active .nav-icon{transform:none}}
+/* Sidebar uses the same 420ms moving selection pattern as ranking tabs. */
+.sidebar{isolation:isolate}
+.sidebar .menu-glass-indicator{position:absolute;left:0;top:0;z-index:0;pointer-events:none;transition:none;will-change:transform}
+.sidebar.glass-menu-ready .menu-glass-indicator{transition:transform 420ms cubic-bezier(.16,1,.3,1),width 220ms ease,height 220ms ease}
+.sidebar .menu-glass-indicator[hidden]{display:none}
+.sidebar .menu-glass-surface{position:absolute;inset:0;border-radius:12px;border:1px solid #D5E5FB;background:rgba(220,234,255,.65);backdrop-filter:blur(18px) saturate(145%);-webkit-backdrop-filter:blur(18px) saturate(145%);box-shadow:0 5px 12px #245EC01a,inset 0 1px 0 #ffffffcc,inset 0 -1px 0 #ffffff80;transform-origin:center}
+.sidebar .nav-list,.sidebar .sidebar-footer{position:relative;z-index:1}
+.sidebar .nav-item{position:relative;transform:none!important;transition:color 220ms ease,background-color 220ms ease}
+.sidebar.glass-menu-ready .nav-item.active{background:transparent!important;box-shadow:none!important;border-color:transparent!important}
+.sidebar.glass-menu-ready .nav-item.active:hover{background:transparent!important}
+@media(prefers-reduced-motion:reduce){.sidebar.glass-menu-ready .menu-glass-indicator{transition:none!important}}
+@media(prefers-reduced-transparency:reduce){.sidebar .menu-glass-surface{background:#DCEAFF;backdrop-filter:none;-webkit-backdrop-filter:none}}
+
+/* Original editorial title typography, retained within the adaptive overview. */
+#dashboardView .welcome-row h1{font-family:Georgia,"Noto Serif SC","Songti SC","STSong",serif!important;font-weight:500!important;letter-spacing:-.035em;max-width:8.5em;text-wrap:wrap;line-height:.98}
+@media(min-width:1151px){#dashboardView .welcome-row h1{font-size:clamp(38px,4.5vw,66px)!important}}
+@media(min-width:1600px){
+ #dashboardView .atlas-hero{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:clamp(36px,3vw,72px)}
+}
+/* Restore the original orbit only when the overview itself has enough room. */
+@container(min-width:800px){
+ #dashboardView .pulse-panel{grid-template-columns:300px minmax(0,1fr)}
+ #dashboardView .pulse-orbit{display:grid;width:46px;height:46px}
+ #dashboardView .pulse-intro>div:last-child{min-width:0}
+ #dashboardView .pulse-orbit::before{inset:3px;border-color:#D5E5FB;border-top-color:#245EC0;animation:weekly-orbit-spin 10s linear infinite}
+ #dashboardView .pulse-orbit::after{inset:12px;border-color:#D5E5FB;border-right-color:#A76E10;animation:weekly-orbit-spin 7s linear infinite reverse}
+ #dashboardView .pulse-orbit span:nth-child(1){top:0;right:4px;background:#245EC0;transform-origin:-13px 23px;animation:weekly-orbit-spin 10s linear infinite}
+ #dashboardView .pulse-orbit span:nth-child(2){bottom:4px;left:1px;background:#A76E10;transform-origin:22px -13px;animation:weekly-orbit-spin 10s linear infinite}
+ #dashboardView .pulse-orbit span:nth-child(3){top:20px;left:20px;background:#245EC0}
+}
+@keyframes weekly-orbit-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){#dashboardView .pulse-orbit::before,#dashboardView .pulse-orbit::after,#dashboardView .pulse-orbit span{animation:none!important}}

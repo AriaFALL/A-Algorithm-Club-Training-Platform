@@ -31,6 +31,7 @@ def showcase(request):
     weeks = Week.objects.filter(semester__team=member.team, semester__archived_at__isnull=True).select_related('semester').order_by('-starts_at')
     selected = request.GET.get('week')
     semester = active_semester(member.team)
+    current_week = active_week(semester) if semester else None
     if selected:
         if not selected.isdigit():
             return api_error('周次编号无效')
@@ -38,7 +39,7 @@ def showcase(request):
         if not week:
             return api_error('周次不存在', 404)
     else:
-        week = active_week(semester) if semester else None
+        week = current_week
     items = Submission.objects.filter(team=member.team, week=week, is_valid=True, semester__archived_at__isnull=True, problem__isnull=False)
     grouped = items.values('problem_id', 'problem__url', 'problem__title').annotate(count=Count('id'), latest=Max('submitted_at')).order_by('-latest', '-problem_id')
     page = page_items(request, grouped)
@@ -49,6 +50,7 @@ def showcase(request):
     for pid, name in items.filter(problem_id__in=[g['problem_id'] for g in groups]).values_list('problem_id', 'member__display_name').distinct():
         names.setdefault(pid, []).append(name)
     return JsonResponse({'week': week.pk if week else None,
+        'current_week': current_week.pk if current_week else None,
         'weeks': [{'id': w.pk, 'label': f'{w.semester.name} · 第{w.number}周'} for w in weeks],
         'problems': [{'id': g['problem_id'], 'title': g['problem__title'] or g['problem__url'], 'url': g['problem__url'], 'count': g['count'], 'members': sorted(names.get(g['problem_id'], []))} for g in groups],
         'next': page.next_page_number() if page.has_next() else None})

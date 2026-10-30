@@ -36,7 +36,7 @@ class RoleTests(TestCase):
             User.objects.filter(pk=self.author.pk).update(is_superuser=True)
 
     def test_only_admin_creates_teams_and_changes_configuration(self):
-        data = {'team_name':'New','team_code':'NEW','join_password':'join-12345'}
+        data = {'team_name':'New','team_code':'NEW'}
         self.assertEqual(self.post('/api/auth/create-team',data).status_code,403)
         self.client.force_login(self.owner)
         self.assertEqual(self.post('/api/auth/create-team',data).status_code,403)
@@ -137,7 +137,7 @@ class AccountResetTests(TransactionTestCase):
     def test_reset_removes_users_and_sessions_but_preserves_teams_and_configuration(self):
         root=User.objects.filter(username='admin').first() or User.objects.create_superuser('admin',password='old-password')
         previous=User.objects.create_user('previous-user',password='password-123')
-        team=Team.objects.create(code='RESET',name='Keep team',created_by=previous,join_password_hash='keep-hash')
+        team=Team.objects.create(code='RESET',name='Keep team',created_by=previous)
         TeamMembership.objects.create(team=team,user=previous,display_name='Remove me',role='admin')
         client=Client();client.force_login(previous)
         migration=importlib.import_module('club.migrations.0010_account_roles')
@@ -147,6 +147,6 @@ class AccountResetTests(TransactionTestCase):
         self.assertTrue(User.objects.get(username='admin').check_password('admin123'))
         team.refresh_from_db()
         self.assertEqual(team.created_by_id,root.pk)
-        self.assertEqual(team.join_password_hash,'keep-hash')
+        self.assertEqual(team.code,'RESET')
         self.assertFalse(TeamMembership.objects.exists())
         self.assertEqual(client.get('/api/me').status_code,401)

@@ -5,27 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f5f8fc" />
     <title>算法社团训练台</title>
+    <link rel="stylesheet" href="static/vendor/tom-select/tom-select.default.min.css" />
+    <link rel="stylesheet" href="static/vendor/sweetalert2/sweetalert2.min.css" />
     <link rel="stylesheet" href="styles.css?v=daily-pulse-8" />
     <link rel="stylesheet" href="currency-styles.css" />
     <link rel="stylesheet" href="profile.css" />
     <link rel="stylesheet" href="extensions.css" />
     <link rel="stylesheet" href="static/blog-editor.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
-  </head>
+    <!-- 新增: UI美化样式 -->
+    <link rel="stylesheet" href="styles/liquid-glass.css" />
+    <link rel="stylesheet" href="styles/animations.css" />
+    <link rel="stylesheet" href="styles/atlas-enhanced.css" />
+  <link rel="stylesheet" href="styles/site-theme.css?v=review-support-left-1" />
+  <link rel="stylesheet" href="styles/gallery-week-picker.css?v=1" />
+<link rel="stylesheet" href="static/club-dialog.css?v=1" /><link rel="stylesheet" href="static/team-join.css?v=1" /><link rel="stylesheet" href="static/glass-drag.css?v=1"></head>
   <body>
     <div class="app-shell">
       <aside class="sidebar" aria-label="主导航">
         <div class="brand">
-          <div class="brand-mark">A</div>
+          <div class="brand-mark brand-emblem">
+            <img src="static/images/rbc-emblem.png" alt="RBC 会徽" />
+          </div>
           <div>
-            <div class="brand-name">算法社团</div>
+            <div class="brand-name">红细胞编程协会</div>
             <div class="brand-subtitle">训练台</div>
           </div>
         </div>
 
         <div class="team-switcher">
           <span class="eyebrow">当前团队</span>
-          <button class="team-button" id="teamButton" type="button" aria-haspopup="listbox">
+          <button class="team-button" id="teamButton" type="button" aria-haspopup="menu" aria-controls="teamMenu" aria-expanded="false">
             <span class="team-avatar">AC</span>
             <span class="team-button-copy">
               <strong id="teamName">ACM 校队</strong>
@@ -33,22 +43,21 @@
             </span>
             <span class="chevron">⌄</span>
           </button>
-          <div class="team-menu" id="teamMenu" role="listbox" aria-label="切换团队"></div>
+          <div class="team-menu" id="teamMenu" role="menu" aria-label="切换团队" inert></div>
         </div>
 
         <nav class="nav-list">
-          <button class="nav-item active" data-view="dashboard" type="button"><span class="nav-icon">⌂</span>总览</button>
-          <button class="nav-item" data-view="submissions" type="button"><span class="nav-icon">□</span>我的提交</button>
-          <button class="nav-item" data-view="leaderboard" type="button"><span class="nav-icon">↗</span>排行榜</button>
-          <button class="nav-item" data-view="contests" type="button"><span class="nav-icon">▦</span>比赛日程</button>
-          <button class="nav-item" data-view="showcase" type="button"><span class="nav-icon">▤</span>提交展示</button>
-          <button class="nav-item" data-view="members" type="button"><span class="nav-icon">♧</span>成员列表</button>
-          <button class="nav-item" data-view="extensions" type="button"><span class="nav-icon">◈</span>拓展</button>
+          <button class="nav-item active" data-view="dashboard" type="button"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg></span>总览</button>
+          <button class="nav-item" data-view="submissions" type="button"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6M8 15l2.5 2.5L16 12"/></svg></span>我的提交</button>
+          <button class="nav-item" data-view="leaderboard" type="button"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M8 3h8v6a4 4 0 0 1-8 0ZM8 5H5v3a3 3 0 0 0 3 3m8-6h3v3a3 3 0 0 1-3 3M12 13v5m-4 3v-3h8v3M6 21h12"/></svg></span>排行榜</button>
+          <button class="nav-item" data-view="contests" type="button"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18M7 15h2m4 0h4m-10 3h2"/></svg></span>比赛日程</button>
+          <button class="nav-item" data-view="showcase" type="button"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M10 9v12m4-8h3m-3 4h3"/></svg></span>提交展示</button>
+          <button class="nav-item" data-view="members" type="button"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m1-17a3 3 0 0 1 0 6m2 5a5 5 0 0 1 3 4v2"/></svg></span>成员列表</button>
+          <button class="nav-item" data-view="extensions" type="button"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M9 3H4a1 1 0 0 0-1 1v5h2a3 3 0 1 1 0 6H3v5a1 1 0 0 0 1 1h5v-2a3 3 0 1 1 6 0v2h5a1 1 0 0 0 1-1v-5h-2a3 3 0 1 1 0-6h2V4a1 1 0 0 0-1-1h-5v2a3 3 0 1 1-6 0Z"/></svg></span>拓展</button>
         </nav>
 
         <div class="sidebar-footer">
-          <button class="nav-item" id="adminNavItem" hidden data-view="admin" type="button"><span class="nav-icon">⚙</span>管理工作台 </button>
-          <div class="sidebar-note"><span class="status-dot"></span>系统运行正常</div>
+          <button class="nav-item" id="adminNavItem" hidden data-view="admin" type="button"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M4 6h6m4 0h6M4 18h6m4 0h6M4 12h2m4 0h10"/><circle cx="12" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="12" cy="18" r="2"/></svg></span>管理工作台 </button>
         </div>
       </aside>
 
@@ -56,7 +65,6 @@
         <header class="topbar">
           <div class="breadcrumbs"><span>工作台</span><span class="slash">/</span><strong id="pageTitle">总览</strong></div>
           <div class="topbar-actions">
-            <button class="icon-button" type="button" title="消息" aria-label="消息"><span class="notification-dot"></span>◌</button>
             <div class="profile-chip"><button id="openProfile" class="profile-entry" type="button" disabled aria-label="打开个人信息"><span class="profile-avatar"></span><span><strong>正在加载…</strong><small></small></span></button><button class="logout-button" id="logoutButton" type="button">退出登录</button></div>
           </div>
         </header>
@@ -68,24 +76,23 @@
             <button class="secondary-button" id="contestRefresh" type="button">↻ 刷新日程</button>
           </section>
           <section class="contest-overview" aria-label="赛程概览">
-            <div class="contest-progress-actions"><button type="button" class="primary-button" id="contestSync">↻ 同步比赛进度</button><button type="button" class="primary-button" id="contestClaimAll" hidden>一键领取奖励</button><span id="contestProgressStatus" role="status"></span></div>
-            <div><span>未来 7 天</span><strong id="contestWeekCount">—</strong><small>场即将开始</small></div>
-            <div><span>正在进行</span><strong id="contestRunningCount">—</strong><small>场比赛</small></div>
+            <div class="contest-stat-upcoming"><span>未来 7 天</span><strong id="contestWeekCount">—</strong><small>场即将开始</small></div>
+            <div class="contest-stat-running"><span>正在进行</span><strong id="contestRunningCount">—</strong><small>场比赛</small></div>
             <div class="contest-next"><span>下一场比赛</span><strong id="contestNextName">正在获取赛程</strong><small id="contestNextTime">统一使用北京时间 · UTC+8</small></div>
+            <div class="contest-progress-actions"><button type="button" class="primary-button" id="contestSync">↻ 同步比赛进度</button><button type="button" class="primary-button" id="contestClaimAll" hidden>一键领取奖励</button><span id="contestProgressStatus" role="status"></span></div>
           </section>
           <section class="panel contest-browser" aria-label="浏览比赛">
             <div class="contest-toolbar">
-              <div class="contest-tabs" role="group" aria-label="比赛状态">
-                <button type="button" data-contest-tab="upcoming" aria-pressed="true">即将开始</button>
-                <button type="button" data-contest-tab="running" aria-pressed="false">进行中</button>
-                <button type="button" data-contest-tab="finished" aria-pressed="false">最近结束</button><button type="button" data-contest-tab="attended" aria-pressed="false" hidden>已参加</button>
+              <div class="contest-tabs segmented" role="group" aria-label="比赛状态">
+                <button class="segment active" type="button" data-contest-tab="upcoming" aria-pressed="true">即将开始</button>
+                <button class="segment" type="button" data-contest-tab="running" aria-pressed="false">进行中</button>
+                <button class="segment" type="button" data-contest-tab="finished" aria-pressed="false">最近结束</button><button class="segment" type="button" data-contest-tab="attended" aria-pressed="false" hidden>已参加</button>
               </div>
               <label class="contest-search"><span>搜索比赛</span><input id="contestSearch" type="search" placeholder="搜索名称、平台…" maxlength="100" /></label>
             </div>
             <div class="contest-filters">
               <label>比赛平台<select id="contestPlatform"><option value="">全部平台</option><option value="codeforces">Codeforces</option><option value="atcoder">AtCoder</option><option value="nowcoder">牛客</option><option value="luogu">洛谷</option><option value="leetcode">LeetCode</option></select></label>
               <span id="contestWindowLabel">未来 90 天 / 最近结束 7 天 · 北京时间</span>
-              <button class="text-button" id="contestReset" type="button">重置筛选</button>
             </div>
             <div id="contestSourceStatus" class="contest-source-status" role="status"></div>
             <div id="contestResults" aria-live="polite" aria-busy="true"><div class="queue-empty">正在获取各平台赛程…</div></div>
@@ -114,7 +121,6 @@
               <p class="stage-caption">本周积分<br><strong id="stageScoreCaption">还差 3 分达标</strong></p>
               <div class="stage-grid" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
               <div class="stage-path" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
-              <div class="stage-float stage-float-a"><span class="float-label">当前焦点</span><strong id="stageFocus">完成第 3 次有效提交</strong><small id="stageFocusMeta">通过截图 · 写题逻辑 · Blog</small></div>
               <div class="stage-float stage-float-b"><span class="float-label">连续达标</span><strong id="stageStreak">— 周</strong><small>保持你的训练节拍</small></div>
               <div class="stage-orbit orbit-a"></div><div class="stage-orbit orbit-b"></div>
             </div>
@@ -133,35 +139,34 @@
 
             </div>
             <div class="pulse-detail" id="pulseDetail">
-              <div><span class="pulse-detail-label">本周焦点</span><strong id="pulseFocus">完成第 3 次有效提交</strong></div>
-              <span class="pulse-streak" id="pulseStreak">你已连续签到0天</span>
+              <div><strong id="pulseFocus">完成第 3 次有效提交</strong></div>
             </div>
           </section>
 
           <section class="metric-grid" aria-label="本周进度">
             <article class="metric-card featured">
-              <div class="metric-top"><span>本周积分</span><span class="metric-icon">✦</span></div>
+              <div class="metric-top"><span>本周积分</span><span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="m12 3 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3L12 17.4l-5.6 3 1.1-6.3L3 9.6l6.2-.9Z"/></svg></span></div>
               <div class="metric-value">7 <small>/ 10 分</small></div>
               <div class="progress-track"><span style="width:70%"></span></div>
               <div class="metric-foot"><span>还差 3 分达标</span><span class="positive">+2.4%</span></div>
             </article>
             <article class="metric-card">
-              <div class="metric-top"><span>有效提交</span><span class="metric-icon neutral">□</span></div>
+              <div class="metric-top"><span>有效提交</span><span class="metric-icon neutral" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Zm0 0v6h6M8 15l3 3 5-6"/></svg></span></div>
               <div class="metric-value">3 <small>/ 4 次</small></div>
               <div class="submission-dots" aria-label="提交进度"><i class="done"></i><i class="done"></i><i class="done"></i><i></i></div>
               <div class="metric-foot"><span>再完成 1 次即可</span><span class="muted">本周要求</span></div>
             </article>
             <article class="metric-card">
-              <div class="metric-top"><span>本周训练排名</span><span class="metric-icon gold">↗</span></div>
+              <div class="metric-top"><span>本周训练排名</span><span class="metric-icon gold" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M8 3h8v5a4 4 0 0 1-8 0Zm0 2H4v2a4 4 0 0 0 4 4m8-6h4v2a4 4 0 0 1-4 4m-4 1v6m-4 3h8m-8 0v-3h8v3"/></svg></span></div>
               <div class="metric-value" id="rankValue">— <small>/ — 人</small></div>
               <div class="rank-change"><span class="rank-pill" id="rankChange">—</span><span id="rankChangeLabel">排名变化</span></div>
               <div class="metric-foot"><span id="rankGap">—</span><span class="muted">训练积分</span></div>
             </article>
             <article class="metric-card">
-              <div class="metric-top"><span>连续达标</span><span class="metric-icon violet">◒</span></div>
-              <div class="metric-value" id="streakValue">— <small>周</small></div>
-              <div class="week-strip"><i></i><i></i><i></i><i></i><i></i><i class="current"></i></div>
-              <div class="metric-foot"><span>保持你的连胜记录</span><span class="muted">学期进度</span></div>
+              <div class="metric-top"><span>连续签到</span><span class="metric-icon violet" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 10h18m-13 5 3 3 5-5"/></svg></span></div>
+              <div class="metric-value" id="streakValue">— <small>天</small></div>
+
+              <div class="metric-foot"><span>保持每天的训练节拍</span></div>
             </article>
           </section>
 
@@ -178,19 +183,18 @@
 
             <article class="panel leaderboard-panel">
               <div class="panel-heading"><div><p class="section-label">TEAM RANKING</p><h2>团队排行榜</h2></div><button class="text-button" data-view-target="leaderboard" type="button">完整榜单 <span>→</span></button></div>
-              <div class="segmented segmented--ranking" role="tablist" aria-label="排行榜分类"><button class="segment active" data-ranking="checkin" type="button">签到榜</button><button class="segment" data-ranking="rating" type="button">Rating榜</button><button class="segment" data-ranking="wealth" type="button">财富榜</button></div>
+<div class="segmented segmented--ranking" role="tablist" aria-label="排行榜分类"><button class="segment active" data-ranking="checkin" type="button">签到榜</button><button class="segment" data-ranking="rating" type="button">Rating榜</button><button class="segment" data-ranking="solved" type="button">过题榜</button><button class="segment" data-ranking="wealth" type="button">财富榜</button></div>
               <label class="rating-platform-filter" hidden>竞赛平台<select data-rating-platform aria-label="Rating榜竞赛平台"><option value="codeforces">Codeforces</option><option value="atcoder">AtCoder</option><option value="nowcoder">牛客</option><option value="luogu">洛谷</option><option value="leetcode_cn">LeetCode 中国站</option><option value="leetcode_us">LeetCode 国际站</option></select></label><div class="leaderboard-list" id="leaderboardList"></div>
-              <div class="your-rank"><span>你的排名</span><strong id="yourRankValue">—</strong><span class="rank-up" id="yourRankChange">排名加载中</span></div>
             </article>
           </section>
         </div>
 
         <div class="page-view" id="submissionsView"><div class="page-heading"><div><p class="kicker">提交记录</p><h1>我的提交</h1><p class="muted">按周查看你的题目、材料与退回原因。</p></div><button class="primary-button" id="openSubmissionSecondary" type="button"><span>＋</span>提交今日记录</button></div><div class="panel empty-state"><div class="empty-icon">□</div><h2>这里会留下你的训练轨迹</h2><p>本周已有 3 次有效提交，继续保持。</p><button class="secondary-button" id="emptyAction" type="button">继续提交</button></div></div>
-        <div class="page-view" id="leaderboardView"><div class="page-heading"><div><p class="kicker">团队数据</p><h1>排行榜</h1><p class="muted">只对当前团队成员开放。</p></div><div class="date-chip" id="leaderboardWeekLabel">当前团队 · 最新数据</div></div><div class="panel full-leaderboard"><div class="segmented segmented--ranking large" role="tablist" aria-label="排行榜分类"><button class="segment active" data-ranking="checkin" type="button">签到榜</button><button class="segment" data-ranking="rating" type="button">Rating榜</button><button class="segment" data-ranking="wealth" type="button">财富榜</button></div><label class="rating-platform-filter" hidden>竞赛平台<select data-rating-platform aria-label="Rating榜竞赛平台"><option value="codeforces">Codeforces</option><option value="atcoder">AtCoder</option><option value="nowcoder">牛客</option><option value="luogu">洛谷</option><option value="leetcode_cn">LeetCode 中国站</option><option value="leetcode_us">LeetCode 国际站</option></select></label><div class="leaderboard-list" id="leaderboardListFull"></div></div></div>
+        <div class="page-view" id="leaderboardView"><div class="page-heading"><div><p class="kicker">团队数据</p><h1>排行榜</h1></div></div><div class="panel full-leaderboard"><div class="segmented segmented--ranking large" role="tablist" aria-label="排行榜分类"><button class="segment active" data-ranking="checkin" type="button">签到榜</button><button class="segment" data-ranking="rating" type="button">Rating榜</button><button class="segment" data-ranking="solved" type="button">过题榜</button><button class="segment" data-ranking="wealth" type="button">财富榜</button></div><label class="rating-platform-filter" hidden>竞赛平台<select data-rating-platform aria-label="Rating榜竞赛平台"><option value="codeforces">Codeforces</option><option value="atcoder">AtCoder</option><option value="nowcoder">牛客</option><option value="luogu">洛谷</option><option value="leetcode_cn">LeetCode 中国站</option><option value="leetcode_us">LeetCode 国际站</option></select></label><div class="leaderboard-list" id="leaderboardListFull"></div></div></div>
         <div class="page-view" id="adminView"><div class="queue-empty">正在加载管理工作台…</div></div>
 
-        <div class="page-view" id="showcaseView"><div class="page-heading"><div><p class="kicker">TEAM LIBRARY</p><h1>提交展示</h1><p class="muted">从本周题目出发，浏览同题的全部历史题解。</p></div><span class="showcase-note">仅当前团队成员可见</span></div><div class="problem-toolbar"><button id="problemBack" class="text-button" hidden>← 返回题目列表</button><select id="galleryWeek" aria-label="选择展示周次"></select><a id="problemOriginal" class="blog-link" target="_blank" rel="noopener noreferrer" hidden>打开原题 ↗</a></div><h2 id="problemHeading">本周题目</h2><div id="showcaseGrid" class="problem-list"></div><button id="galleryMore" class="secondary-button" hidden>加载更多</button></div>
-        <div class="page-view" id="membersView"><div class="page-heading"><div><p class="kicker">TEAM DIRECTORY</p><h1>成员列表</h1><p class="muted">查看团队成员的训练进度，点击成员可查看指定周次的历史提交。</p></div><div class="date-chip">30 位成员</div></div><div class="member-toolbar"><div class="search-box"><span>⌕</span><input id="memberSearch" type="search" placeholder="搜索成员姓名" /></div><div class="filter-chip">全部成员⌄</div></div><div class="members-grid" id="membersGrid"><article class="member-card" data-member="林同学"><div class="member-card-head"><span class="member-avatar dark">林</span><div><strong>林同学</strong><small>团队管理员 · 连续达标 5 周</small></div><span class="member-status">活跃</span></div><div class="member-card-stats"><div><span>本周积分</span><strong>7 <small>/ 10</small></strong></div><div><span>本周提交</span><strong>3 <small>次</small></strong></div><div><span>学期积分</span><strong>72</strong></div></div><button class="member-history-button" type="button" data-member-history="lin">查看历史提交 <span>→</span></button></article><article class="member-card" data-member="王同学"><div class="member-card-head"><span class="member-avatar">王</span><div><strong>王同学</strong><small>连续达标 6 周 · 本周排名 1</small></div><span class="member-status">活跃</span></div><div class="member-card-stats"><div><span>本周积分</span><strong>12 <small>/ 10</small></strong></div><div><span>本周提交</span><strong>5 <small>次</small></strong></div><div><span>学期积分</span><strong>79</strong></div></div><button class="member-history-button" type="button" data-member-history="wang">查看历史提交 <span>→</span></button></article><article class="member-card" data-member="李同学"><div class="member-card-head"><span class="member-avatar blue">李</span><div><strong>李同学</strong><small>连续达标 4 周 · 本周排名 2</small></div><span class="member-status">活跃</span></div><div class="member-card-stats"><div><span>本周积分</span><strong>10 <small>/ 10</small></strong></div><div><span>本周提交</span><strong>4 <small>次</small></strong></div><div><span>学期积分</span><strong>86</strong></div></div><button class="member-history-button" type="button" data-member-history="li">查看历史提交 <span>→</span></button></article><article class="member-card" data-member="陈同学"><div class="member-card-head"><span class="member-avatar purple">陈</span><div><strong>陈同学</strong><small>连续达标 3 周 · 本周排名 4</small></div><span class="member-status offline">本周未达标</span></div><div class="member-card-stats"><div><span>本周积分</span><strong>8 <small>/ 10</small></strong></div><div><span>本周提交</span><strong>3 <small>次</small></strong></div><div><span>学期积分</span><strong>76</strong></div></div><button class="member-history-button" type="button" data-member-history="chen">查看历史提交 <span>→</span></button></article></div></div>
+<div class="page-view" id="showcaseView"><div class="page-heading"><div><p class="kicker">TEAM LIBRARY</p><h1>提交展示</h1><p class="muted">从本周题目出发，浏览同题的全部历史题解。</p></div></div><div class="problem-toolbar"><button id="problemBack" class="secondary-button problem-back-button" type="button" hidden><svg class="ui-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 5-7 7 7 7"/></svg><span>返回题目列表</span></button><div id="galleryWeekPicker" class="gallery-week-picker"><svg class="week-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="4"/><path d="M7 3v4m10-4v4M3 11h18m-13 4h3m3 0h2"/></svg><select id="galleryWeek" aria-label="选择展示周次"></select></div></div><div class="problem-title-row"><h2 id="problemHeading">本周题目</h2><a id="problemOriginal" class="problem-original-icon" target="_blank" rel="noopener noreferrer" aria-label="在新窗口打开原题" title="打开原题" hidden><svg class="ui-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 17 17 7M7 7h10v10"/></svg></a></div><div id="showcaseGrid" class="problem-list"></div><button id="galleryMore" class="secondary-button" hidden>加载更多</button></div>
+<div class="page-view" id="membersView"><div class="page-heading"><div><p class="kicker">TEAM DIRECTORY</p><h1>成员列表</h1><p class="muted">查看团队成员的训练进度，点击成员可查看指定周次的历史提交。</p></div></div><div class="member-toolbar"><div class="search-box input member-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input id="memberSearch" type="search" placeholder="搜索成员姓名…" aria-label="搜索成员姓名" autocomplete="off" /><button id="memberSearchClear" class="member-search-clear" type="button" aria-label="清空成员搜索" title="清空搜索" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div></div><div class="members-grid" id="membersGrid"><article class="member-card" data-member="林同学"><div class="member-card-head"><span class="member-avatar dark">林</span><div><strong>林同学</strong><small>团队管理员 · 连续达标 5 周</small></div><span class="member-status">活跃</span></div><div class="member-card-stats"><div><span>本周积分</span><strong>7 <small>/ 10</small></strong></div><div><span>本周提交</span><strong>3 <small>次</small></strong></div><div><span>学期积分</span><strong>72</strong></div></div><button class="member-history-button" type="button" data-member-history="lin">查看历史提交 <span>→</span></button></article><article class="member-card" data-member="王同学"><div class="member-card-head"><span class="member-avatar">王</span><div><strong>王同学</strong><small>连续达标 6 周 · 本周排名 1</small></div><span class="member-status">活跃</span></div><div class="member-card-stats"><div><span>本周积分</span><strong>12 <small>/ 10</small></strong></div><div><span>本周提交</span><strong>5 <small>次</small></strong></div><div><span>学期积分</span><strong>79</strong></div></div><button class="member-history-button" type="button" data-member-history="wang">查看历史提交 <span>→</span></button></article><article class="member-card" data-member="李同学"><div class="member-card-head"><span class="member-avatar blue">李</span><div><strong>李同学</strong><small>连续达标 4 周 · 本周排名 2</small></div><span class="member-status">活跃</span></div><div class="member-card-stats"><div><span>本周积分</span><strong>10 <small>/ 10</small></strong></div><div><span>本周提交</span><strong>4 <small>次</small></strong></div><div><span>学期积分</span><strong>86</strong></div></div><button class="member-history-button" type="button" data-member-history="li">查看历史提交 <span>→</span></button></article><article class="member-card" data-member="陈同学"><div class="member-card-head"><span class="member-avatar purple">陈</span><div><strong>陈同学</strong><small>连续达标 3 周 · 本周排名 4</small></div><span class="member-status offline">本周未达标</span></div><div class="member-card-stats"><div><span>本周积分</span><strong>8 <small>/ 10</small></strong></div><div><span>本周提交</span><strong>3 <small>次</small></strong></div><div><span>学期积分</span><strong>76</strong></div></div><button class="member-history-button" type="button" data-member-history="chen">查看历史提交 <span>→</span></button></article></div></div>
 
         <!-- RBC Shop View -->
         <div class="page-view" id="rbcshopView"></div>
@@ -225,7 +229,7 @@
 <button type="button" class="toolbar-btn" data-action="bold" title="粗体"><strong>B</strong></button>
 <button type="button" class="toolbar-btn" data-action="italic" title="斜体"><em>I</em></button>
 <button type="button" class="toolbar-btn" data-action="heading" title="标题">H</button>
-<button type="button" class="toolbar-btn" data-action="code" title="代码">&lt;/&gt;</button>
+<button type="button" class="toolbar-btn" data-action="code" title="代码" aria-label="代码"><svg class="ui-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18"/></svg></button>
 <button type="button" class="toolbar-btn" data-action="link" title="链接">🔗</button>
 <button type="button" class="toolbar-btn" data-action="image" title="图片">🖼</button>
 <button type="button" class="toolbar-btn" data-action="list" title="列表">≡</button>
@@ -250,7 +254,7 @@
 </div>
 </div>
 </div><div class="modal-footer"><span class="muted">提交后立即计分并展示，题名在后台自动解析</span><button class="primary-button" type="submit">提交记录 <span>→</span></button></div></form></section></div>
-    <div class="modal-backdrop" id="reviewModal" aria-hidden="true"><section class="modal review-modal" role="dialog" aria-modal="true" aria-labelledby="reviewModalTitle"><div class="modal-header"><div><p class="section-label">SUBMISSION REVIEW</p><h2 id="reviewModalTitle">查看提交内容</h2></div><button class="close-button" id="closeReview" type="button" aria-label="关闭">×</button></div><div class="review-author"><span class="review-avatar" id="reviewAvatar">周</span><div><strong id="reviewMember">周同学</strong><small id="reviewTime">今天 11:06 · 第 3 次提交</small></div><span class="status-tag pending">待审核</span></div><div class="review-reading-layout"><main class="review-content-block review-blog-section" id="reviewBlogSection"><div class="review-block-head"><strong>Blog</strong><span class="empty-chip" id="reviewBlogStatus">未提交</span></div><div id="reviewBlog"></div></main><aside class="review-supporting-materials" aria-label="通过截图与写题逻辑"><div class="review-content-block"><div class="review-block-head"><strong>通过截图</strong><span class="required-chip">必填</span></div><div class="screenshot-placeholder"><img id="reviewImage" alt="通过截图" /><span class="screenshot-icon" id="reviewImageFallback">▧</span><div><strong id="reviewFileName">submission-proof.png</strong><small id="reviewFileMeta">已上传 · 1.8 MB</small></div><button class="text-button" id="zoomReviewImage" type="button">放大查看</button></div></div><div class="review-content-block"><div class="review-block-head"><strong>写题逻辑</strong><span class="score-chip">+1 分</span></div><p class="review-quote" id="reviewLogic">使用排序和双指针，先固定左端点，再移动右端点寻找满足条件的最优解。</p></div></aside></div><div class="own-review-actions" id="ownReviewActions" hidden><span class="muted" id="ownReviewHint"></span><button class="review-action-tag" id="editOwnSubmission" type="button">编辑</button><button class="review-action-tag danger" id="deleteOwnSubmission" type="button">删除</button></div></section></div>
+    <div class="modal-backdrop" id="reviewModal" aria-hidden="true"><section class="modal review-modal" role="dialog" aria-modal="true" aria-labelledby="reviewModalTitle"><div class="modal-header"><div><p class="section-label">SUBMISSION REVIEW</p><h2 id="reviewModalTitle">查看提交内容</h2></div><button class="close-button" id="closeReview" type="button" aria-label="关闭">×</button></div><div class="review-author"><span class="review-avatar" id="reviewAvatar">周</span><div><strong id="reviewMember">周同学</strong><small id="reviewTime">今天 11:06 · 第 3 次提交</small></div><a id="reviewOriginalProblem" class="secondary-button review-original-link" target="_blank" rel="noopener noreferrer" hidden>跳转原题 ↗</a><span class="status-tag pending">待审核</span></div><div class="review-reading-layout"><main class="review-content-block review-blog-section" id="reviewBlogSection"><div class="review-block-head"><strong>Blog</strong><span class="empty-chip" id="reviewBlogStatus">未提交</span></div><div id="reviewBlog"></div></main><aside class="review-supporting-materials" aria-label="通过截图与写题逻辑"><div class="review-content-block"><div class="review-block-head"><strong>通过截图</strong><span class="required-chip">必填</span></div><div class="screenshot-placeholder"><img id="reviewImage" alt="通过截图" /><span class="screenshot-icon" id="reviewImageFallback">▧</span><div><strong id="reviewFileName">submission-proof.png</strong><small id="reviewFileMeta">已上传 · 1.8 MB</small></div><button class="text-button" id="zoomReviewImage" type="button">放大查看</button></div></div><div class="review-content-block"><div class="review-block-head"><strong>写题逻辑</strong><span class="score-chip">+1 分</span></div><p class="review-quote" id="reviewLogic">使用排序和双指针，先固定左端点，再移动右端点寻找满足条件的最优解。</p></div></aside></div><div class="own-review-actions" id="ownReviewActions" hidden><span class="muted" id="ownReviewHint"></span><button class="review-action-tag" id="editOwnSubmission" type="button">编辑</button><button class="review-action-tag danger" id="deleteOwnSubmission" type="button">删除</button></div></section></div>
     <div class="modal-backdrop" id="memberHistoryModal" aria-hidden="true"><section class="modal history-modal" role="dialog" aria-modal="true" aria-labelledby="historyTitle"><div class="modal-header"><div><p class="section-label">MEMBER HISTORY</p><h2 id="historyTitle">成员历史提交</h2></div><button class="close-button" id="closeHistory" type="button" aria-label="关闭">×</button></div><div class="history-author"><span class="member-avatar dark" id="historyAvatar">林</span><div><strong id="historyMember">林同学</strong><small>本团队 · 学期累计 72 分</small></div><select id="historyWeek"><option value="6">第 06 周</option><option value="5">第 05 周</option><option value="4">第 04 周</option><option value="3">第 03 周</option></select></div><div class="history-summary"><div><span>本周积分</span><strong id="historyScore">7 分</strong></div><div><span>有效提交</span><strong id="historyCount">3 次</strong></div><div><span>达标状态</span><strong class="positive">已达标</strong></div></div><div class="history-list" id="historyList"><div class="history-item"><div class="history-item-icon approved">✓</div><div><strong>通过截图</strong><small>今天 10:24 · 已通过</small></div><span>+1 分</span><button class="history-view" type="button" data-review="zhao">查看内容</button></div><div class="history-item"><div class="history-item-icon pending">◷</div><div><strong>写题逻辑</strong><small>今天 10:24 · 待审核</small></div><span class="pending-text">待审核</span><button class="history-view" type="button" data-review="zhou">查看内容</button></div><div class="history-item"><div class="history-item-icon approved">✓</div><div><strong>Blog</strong><small>周四 22:08 · 已通过</small></div><span>+1 分</span><button class="history-view" type="button" data-review="chen">查看内容</button></div></div><div class="history-note"><span>i</span>有效提交向团队成员展示，退回材料仅本人及管理员可见。</div></section></div>
     <div class="image-lightbox" id="imageLightbox" aria-hidden="true"><button class="image-lightbox-close" id="closeImageLightbox" type="button" aria-label="关闭图片预览">×</button><img id="lightboxImage" alt="放大后的通过截图" /></div>
     <div class="feedback-layer" id="feedbackLayer" aria-live="polite" aria-hidden="true">
@@ -264,11 +268,32 @@
     </div>
     <div class="modal-backdrop" id="reportDecisionModal" aria-hidden="true"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="reportDecisionTitle"><div class="modal-header"><h2 id="reportDecisionTitle">整条退回</h2><button id="closeReportDecision" class="close-button" aria-label="取消退回">×</button></div><form id="reportDecisionForm"><p class="muted">退回后将隐藏该记录，并撤销其积分及有效提交次数。</p><label class="field-label">退回原因<textarea id="rejectionReason" required maxlength="500" rows="4" placeholder="请说明需要修改的内容"></textarea></label><div class="modal-footer"><span class="muted">原因会展示给提交者</span><button class="primary-button" type="submit">确认退回</button></div></form></section></div>
     <div class="toast" id="toast" role="status"><span>✓</span><span id="toastText">提交成功，已计分并展示</span></div>
+
+    <!-- 第三方库 -->
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <!-- GSAP 动画引擎 -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/Draggable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/Flip.min.js"></script>
+
+    <!-- UI动画系统初始化 (必须在GSAP之后、业务逻辑之前) -->
+    <script src="animations/gsap-init.js"></script>
+    <script src="animations/sidebar-nav.js"></script>
+    <script src="animations/atlas-stage.js"></script>
+    <script src="animations/atlas-enhanced.js"></script>
+    <script src="animations/view-transitions.js"></script>
+
+    <!-- 业务逻辑脚本 -->
     <script src="api.js"></script>
-    <script src="community.js"></script>
+    <script src="static/vendor/tom-select/tom-select.complete.min.js"></script>
+    <script src="static/vendor/sweetalert2/sweetalert2.min.js"></script>
+    <script src="static/club-dialog.js?v=1"></script><script src="static/team-join.js?v=1"></script>
+    <script src="static/platform-select.js?v=1"></script>
+    <script src="community.js?v=week-picker-1"></script>
     <script src="workbench.js"></script>
     <script src="static/blog-editor.js"></script>
     <script src="contests.js"></script>
@@ -277,5 +302,6 @@
     <script src="profile.js"></script>
     <script src="extensions.js"></script>
   <script src="app.js"></script>
+  <script src="static/glass-drag.js?v=1"></script>
   </body>
 </html>

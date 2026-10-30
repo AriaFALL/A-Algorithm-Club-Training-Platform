@@ -1,4 +1,42 @@
 let galleryWeek = '';
+let galleryWeekControl = null;
+
+function updateGalleryWeeks(data) {
+  const select = $('#galleryWeek');
+  const weeks = data.weeks.map(week => ({value: String(week.id), text: week.label, current: String(week.id) === String(data.current_week)}));
+  if (!data.week) weeks.unshift({value: '', text: '当前没有开放周次'});
+  if (!galleryWeekControl) {
+    select.innerHTML = weeks.map(week => `<option value="${escapeHtml(week.value)}">${escapeHtml(week.text)}</option>`).join('');
+    select.value = galleryWeek;
+    if (window.TomSelect) {
+      galleryWeekControl = new TomSelect(select, {
+        options: weeks,
+        create: false, maxItems: 1, maxOptions: null, allowEmptyOption: true,
+        searchField: ['text'], sortField: [{field: '$order'}],
+        plugins: ['dropdown_input'], placeholder: '选择展示周次',
+        render: {
+          option(item, escape) {
+            const match = item.text.match(/^(.*?)\s*·\s*(第\s*\d+\s*周)$/);
+            return `<div class="week-option${item.current ? ' is-current-week' : ''}"><span>${escape(match ? match[1] : item.text)}</span><span class="week-option-label">${item.current ? '<small class="current-week-tag">本周</small>' : ''}${match ? `<strong>${escape(match[2])}</strong>` : ''}</span></div>`;
+          },
+          no_results() { return '<div class="no-results">未找到匹配的周次</div>'; }
+        },
+        onInitialize() { this.control.setAttribute('aria-label', '选择展示周次'); },
+        onDropdownOpen() {
+          const input = this.dropdown.querySelector('input');
+          if (input) { input.placeholder = '搜索学期或周次…'; input.setAttribute('aria-label', '搜索学期或周次'); }
+        }
+      });
+    }
+  } else {
+    galleryWeekControl.clear(true);
+    galleryWeekControl.clearOptions();
+    galleryWeekControl.addOptions(weeks);
+    galleryWeekControl.setValue(galleryWeek, true);
+    galleryWeekControl.refreshOptions(false);
+  }
+  return weeks.find(week => week.value === galleryWeek)?.text;
+}
 let galleryProblem = null;
 let galleryRequest = 0;
 let reportRequest = 0;
@@ -38,7 +76,7 @@ function submissionCard(item, moderation = false) {
   const logic = item.parts.find(p => p.kind === 'logic');
   const blog = item.parts.find(p => p.kind === 'blog');
   return `<article class="solution-card panel" data-submission="${item.id}">
-    <div class="member-line"><span class="leader-avatar">${escapeHtml(item.member_name.slice(0, 1))}</span><div><strong>${escapeHtml(item.member_name)}</strong><small>${escapeHtml(item.semester_name)} · 第${item.week}周<br>归属日期：${escapeHtml(item.record_date || '')}<br>上传：${new Date(item.submitted_at).toLocaleString('zh-CN')}</small></div></div>
+    <div class="member-line">${memberAvatar(item.member_id,item.member_name)}<div><strong>${escapeHtml(item.member_name)}</strong><small>${escapeHtml(item.semester_name)} · 第${item.week}周<br>归属日期：${escapeHtml(item.record_date || '')}<br>上传：${new Date(item.submitted_at).toLocaleString('zh-CN')}</small></div></div>
     ${moderation ? `<h3>${escapeHtml(item.problem_title)}</h3><small>${escapeHtml(item.team_name || '')}</small><p class="muted">${item.reports} 人举报 · 版本 ${item.version}</p>` : ''}
     ${blog?.text ? `<div class="shared-content blog-content"><strong>Blog</strong><div class="blog-rendered" data-markdown="${escapeHtml(blog.text)}"></div></div>` : ''}
     <div class="solution-attachments">
@@ -55,7 +93,7 @@ async function loadShowcase(page = 1) {
   const host = $('#showcaseGrid');
   const more = $('#galleryMore');
   $('#problemBack').hidden = true;
-  $('#galleryWeek').hidden = false;
+  $('#galleryWeekPicker').hidden = false;
   $('#problemHeading').textContent = '本周题目';
   $('#problemOriginal').hidden = true;
   if (page === 1) host.innerHTML = '<div class="queue-empty">正在加载题目…</div>';
@@ -65,10 +103,8 @@ async function loadShowcase(page = 1) {
     const data = await communityRequest(`/api/showcase?page=${page}${galleryWeek ? `&week=${galleryWeek}` : ''}`);
     if (version !== galleryRequest) return;
     galleryWeek = data.week ? String(data.week) : '';
-    const select = $('#galleryWeek');
-    select.innerHTML = `${!data.week ? '<option value="">当前没有开放周次</option>' : ''}` + data.weeks.map(w => `<option value="${w.id}">${escapeHtml(w.label)}</option>`).join('');
-    select.value = galleryWeek;
-    $('#problemHeading').textContent = data.week ? select.selectedOptions[0]?.textContent || '题目列表' : '题目列表';
+    const weekLabel = updateGalleryWeeks(data);
+    $('#problemHeading').textContent = data.week ? weekLabel || '题目列表' : '题目列表';
     const html = data.problems.map(p => `<button class="problem-row panel" data-problem="${p.id}"><span><strong>${escapeHtml(p.title)}</strong><small>${p.count} 个题解：${p.members.map(escapeHtml).join('　')}</small></span><span class="problem-arrow">点击查看 →</span></button>`).join('');
     if (page === 1) host.innerHTML = html || '<div class="queue-empty">该周暂无提交，完成第一份题解吧。</div>';
     else host.insertAdjacentHTML('beforeend', html);
@@ -83,7 +119,9 @@ async function openProblem(id, page = 1) {
   const host = $('#showcaseGrid');
   const more = $('#galleryMore');
   $('#problemBack').hidden = false;
-  $('#galleryWeek').hidden = true;
+  $('#galleryWeekPicker').hidden = true;
+  $('#problemOriginal').hidden = true;
+  $('#problemOriginal').removeAttribute('href');
   host.className = 'solution-waterfall';
   if (page === 1) host.innerHTML = '<div class="queue-empty">正在加载全部历史题解…</div>';
   more.hidden = true;

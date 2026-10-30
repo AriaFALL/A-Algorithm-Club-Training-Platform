@@ -316,7 +316,9 @@ def api_user_inventory(request):
 
     data = [{
         "id": inv.id,
+        "item_id": inv.item_id,
         "item_name": inv.item.name,
+        "description": inv.item.description,
         "item_type": inv.item.item_type,
         "quantity": inv.quantity,
         "icon": shop_item_icon_url(inv.item)

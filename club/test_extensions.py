@@ -8,6 +8,19 @@ class ExtensionTests(TestCase):
     setUp = fixtures.CommunityTests.setUp
     image = fixtures.CommunityTests.image
 
+    def test_transparent_cover_uses_theme_blue(self):
+        import io
+        from PIL import Image
+        self.admin()
+        image = io.BytesIO()
+        Image.new('RGBA', (20, 20), (255, 0, 0, 0)).save(image, 'PNG')
+        response = self.client.post('/api/extensions', {'title':'透明封面', 'kind':'link',
+            'url':'https://example.com', 'cover':SimpleUploadedFile('transparent.png', image.getvalue(), content_type='image/png')})
+        self.assertEqual(response.status_code, 200)
+        cover = self.client.get(response.json()['item']['cover'])
+        pixel = Image.open(io.BytesIO(b''.join(cover.streaming_content))).getpixel((400, 400))
+        self.assertTrue(all(abs(a-b) <= 3 for a,b in zip(pixel, (220,234,255))), pixel)
+
     def admin(self):
         self.root = User.objects.get(username='admin')
         self.client.force_login(self.root)

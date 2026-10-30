@@ -154,7 +154,7 @@ class WorkbenchTests(TestCase):
     def test_team_settings_available_from_frontend_only_for_root(self):
         endpoint=f'/api/management/teams/{self.team.pk}/settings'
         data=self.admin_client.get(endpoint).json()
-        payload={'name':'Updated','code':self.team.code,'join_password':'','min_score':3,
+        payload={'name':'Updated','code':self.team.code,'min_score':3,
             'min_submissions':2,'screenshot_points':1,'logic_points':2,'blog_points':3,'require_both':False}
         self.assertEqual(self.admin_client.put(endpoint,json.dumps(payload),content_type='application/json').status_code,200)
         self.semester.refresh_from_db()

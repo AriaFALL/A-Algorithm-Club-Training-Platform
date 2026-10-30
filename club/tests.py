@@ -19,7 +19,7 @@ from .services import approve_submission_parts, build_weeks, cleanup_semester
 class ClubApiTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", password="password-123")
-        self.team = Team.objects.create(name="Test", code="TEST", join_password_hash=make_password("join-12345"), created_by=self.user)
+        self.team = Team.objects.create(name="Test", code="TEST", created_by=self.user)
         self.member = TeamMembership.objects.create(user=self.user, team=self.team, display_name="林同学", role=TeamMembership.OWNER)
         self.semester = Semester.objects.create(team=self.team, name="测试学期", starts_on=date.today() - timedelta(days=7), ends_on=date.today() + timedelta(days=30))
         build_weeks(self.semester)
@@ -31,14 +31,47 @@ class ClubApiTests(TestCase):
         client = Client()
         user = User.objects.create_user(username='new-member', password='password-123')
         client.force_login(user)
-        response = client.post('/api/auth/join', data=json.dumps({'team_code':'TEST','name':'张同学','join_password':'join-12345'}), content_type='application/json')
+        response = client.post('/api/auth/join', data=json.dumps({'team_code':'TEST','name':'张同学'}), content_type='application/json')
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(TeamMembership.objects.get(user=user,team=self.team).role, TeamMembership.MEMBER)
+
+    def test_members_weekly_score_and_contest_ac_problems(self):
+        from .models import Problem
+        week, other_week = list(self.semester.weeks.all()[:2])
+        problem = Problem.objects.create(identity='test:ac', url='https://example.com/problem/ac')
+        pending = Problem.objects.create(identity='test:pending', url='https://example.com/problem/pending')
+        for target_week, target_problem, valid, status, points in [
+            (week, problem, True, SubmissionPart.APPROVED, 1),
+            (week, problem, True, SubmissionPart.APPROVED, 1),
+            (week, pending, True, SubmissionPart.PENDING, 0),
+            (week, pending, False, SubmissionPart.APPROVED, 10),
+            (other_week, pending, True, SubmissionPart.APPROVED, 20),
+        ]:
+            submission = Submission.objects.create(team=self.team, member=self.member, semester=self.semester,
+                                                   week=target_week, problem=target_problem, is_valid=valid)
+            SubmissionPart.objects.create(submission=submission, kind=SubmissionPart.PROOF,
+                                          status=status, points_awarded=points)
+        from .models import ContestParticipation, ContestProblemProgress, PlatformBinding
+        PlatformBinding.objects.create(user=self.user, platform='codeforces', account='owner')
+        for key, account, target_week in [('current', 'owner', week), ('old', 'owner', other_week),
+                                           ('unbound', 'previous', week)]:
+            contest = ContestParticipation.objects.create(user=self.user, platform='codeforces', account=account,
+                contest_key=key, title=key, url='https://example.com/contest',
+                starts_at=target_week.starts_at, ends_at=target_week.ends_at)
+            for label, accepted in [('A', True), ('B', True), ('C', False)]:
+                ContestProblemProgress.objects.create(participation=contest, problem_key=label, label=label,
+                    title=label, url='https://example.com/problem', accepted=accepted)
+        with patch('club.views.active_semester', return_value=self.semester), patch('club.views.active_week', return_value=week):
+            response = self.client.get('/api/members')
+        self.assertEqual(response.status_code, 200)
+        row = next(member for member in response.json()['members'] if member['id'] == self.member.id)
+        # Two contest AC labels plus one distinct approved submission problem.
+        self.assertEqual((row['score'], row['submissions'], row['ac_problems']), (2, 2, 3))
 
     def test_admin_invite_cannot_grant_management_role(self):
         user = User.objects.create_user(username='regular',password='password-123')
         self.client.force_login(user)
-        response=self.client.post('/api/auth/join',data=json.dumps({'team_code':'TEST','name':'普通成员','join_password':'join-12345','admin_invite':'admin-me-2026','role':'admin'}),content_type='application/json')
+        response=self.client.post('/api/auth/join',data=json.dumps({'team_code':'TEST','name':'普通成员','admin_invite':'admin-me-2026','role':'admin'}),content_type='application/json')
         self.assertEqual(response.status_code,200,response.content)
         self.assertEqual(TeamMembership.objects.get(user=user,team=self.team).role,'member')
 
