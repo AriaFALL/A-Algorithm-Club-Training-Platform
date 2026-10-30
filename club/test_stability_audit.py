@@ -80,7 +80,11 @@ class AuditWeekTests(TestCase):
 
     def test_daily_reward_on_first_submission_only_and_failure_is_atomic(self):
         self.enable();self.team.daily_checkin_reward=3;self.team.save()
-        self.submit();self.submit()
+        self.submit()
+        from .models import Problem
+        self.problem = Problem.objects.create(identity='daily-reward:second-problem',
+            url='https://example.com/problem/second')
+        self.submit()
         self.assertEqual(CheckinRecord.objects.filter(member=self.author_member,checkin_date=timezone.localdate()).count(),1)
         self.assertEqual(CurrencyBalance.objects.get(member=self.author_member).balance,3)
         self.assertEqual(CurrencyTransaction.objects.filter(member=self.author_member,transaction_type='checkin').count(),1)
