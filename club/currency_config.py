@@ -64,8 +64,8 @@ def validate_config(data):
             seen.add(key)
     if 'currency_icon_svg' in data and data['currency_icon_svg'] is not None:
         raw = data['currency_icon_svg']
-        if not isinstance(raw, str) or len(raw.encode('utf-8')) > 131072:
-            raise ValueError('SVG 图标不能超过 128 KB')
+        if not isinstance(raw, str):
+            raise ValueError('SVG 图标格式无效')
         if re.search(r'<!DOCTYPE|<!ENTITY', raw, re.I):
             raise ValueError('SVG 图标不能包含外部实体')
         try:

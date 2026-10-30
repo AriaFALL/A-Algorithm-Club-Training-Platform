@@ -197,7 +197,7 @@ const CurrencyAdminModule = (() => {
         <label class="workbench-check"><input name="currency_enabled" type="checkbox" ${config.currency_enabled ? 'checked' : ''}>启用 RBC 货币系统</label>
         <p class="muted">关闭后，该团队的余额与商店入口会隐藏。</p>
         <fieldset class="currency-config-options" ${config.currency_enabled ? '' : 'hidden disabled'}>
-          <label>货币图标（SVG，最多 128 KB）<input name="currency_icon" type="file" accept=".svg,image/svg+xml"></label>
+          <label>货币图标（SVG）<input name="currency_icon" type="file" accept=".svg,image/svg+xml"></label>
           ${config.currency_icon ? `<div class="currency-icon-preview"><img src="${escape(config.currency_icon)}" width="32" height="32" alt="当前货币图标"><label class="workbench-check"><input name="remove_icon" type="checkbox">恢复默认图标</label></div>` : ''}
           <label>每日签到奖励 (RBC)<input name="daily_checkin_reward" type="number" min="0" max="100" required value="${config.daily_checkin_reward}"></label>
           <p class="muted">每天第一次提交的签到奖励；补签不发放每日奖励。</p>
@@ -232,7 +232,7 @@ const CurrencyAdminModule = (() => {
           payload.problem_rewards=Object.fromEntries(['beginner','experienced'].map(group=>[group,[...container.querySelectorAll('[data-problem-reward='+group+']')].map(input=>Number(input.value))]));
           payload.streak_rewards=[...container.querySelectorAll('[data-kind="streak"]')].map(row=>({days:Number(row.querySelector('.rule-threshold').value),reward:Number(row.querySelector('.rule-reward').value)}));
           const file=form.elements.currency_icon.files[0];
-          if(file){if(file.size>131072)throw new Error('SVG 图标不能超过 128 KB');payload.currency_icon_svg=await file.text();}
+          if(file){payload.currency_icon_svg=await file.text();}
           else if(form.elements.remove_icon?.checked)payload.currency_icon_svg=null;
         }
         const response=await window.clubApi.request('/api/currency/admin/config', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
