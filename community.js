@@ -4,7 +4,7 @@ let galleryWeekControl = null;
 function updateGalleryWeeks(data) {
   const select = $('#galleryWeek');
   const weeks = data.weeks.map(week => ({value: String(week.id), text: week.label, current: String(week.id) === String(data.current_week)}));
-  if (!data.week) weeks.unshift({value: '', text: '当前没有开放周次'});
+  if (!data.week) weeks.unshift({value: '', text: '暂无已开始的周次'});
   if (!galleryWeekControl) {
     select.innerHTML = weeks.map(week => `<option value="${escapeHtml(week.value)}">${escapeHtml(week.text)}</option>`).join('');
     select.value = galleryWeek;
@@ -113,6 +113,30 @@ async function loadShowcase(page = 1) {
   } catch (error) { if (version === galleryRequest) host.innerHTML = `<div class="queue-empty">${escapeHtml(error.message)}</div>`; }
 }
 
+function appendSubmissionDays(host, submissions) {
+  const groups = new Map([...host.querySelectorAll('.submission-day')].map(group => [group.dataset.date, group]));
+  const today = new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit'}).format(new Date());
+  const dateFormat = new Intl.DateTimeFormat('zh-CN', {timeZone: 'Asia/Shanghai', year: 'numeric', month: 'long', day: 'numeric', weekday: 'short'});
+  for (const item of submissions) {
+    const day = item.record_date;
+    let group = groups.get(day);
+    if (!group) {
+      group = document.createElement('section');
+      group.className = 'submission-day';
+      group.dataset.date = day;
+      const heading = document.createElement('h2');
+      heading.className = 'submission-day-heading';
+      heading.textContent = `${day === today ? '今天 · ' : ''}${dateFormat.format(new Date(`${day}T12:00:00+08:00`))}`;
+      const cards = document.createElement('div');
+      cards.className = 'solution-waterfall';
+      group.append(heading, cards);
+      host.append(group);
+      groups.set(day, group);
+    }
+    group.querySelector('.solution-waterfall').insertAdjacentHTML('beforeend', submissionCard(item));
+  }
+}
+
 async function openProblem(id, page = 1) {
   galleryProblem = id;
   const version = ++galleryRequest;
@@ -122,7 +146,7 @@ async function openProblem(id, page = 1) {
   $('#galleryWeekPicker').hidden = true;
   $('#problemOriginal').hidden = true;
   $('#problemOriginal').removeAttribute('href');
-  host.className = 'solution-waterfall';
+  host.className = 'submission-days';
   if (page === 1) host.innerHTML = '<div class="queue-empty">正在加载全部历史题解…</div>';
   more.hidden = true;
   try {
@@ -131,9 +155,8 @@ async function openProblem(id, page = 1) {
     $('#problemHeading').textContent = data.problem.title;
     const link = $('#problemOriginal');
     link.hidden = false; link.href = data.problem.url;
-    const html = data.submissions.map(item => submissionCard(item)).join('');
-    if (page === 1) host.innerHTML = html;
-    else host.insertAdjacentHTML('beforeend', html);
+    if (page === 1) host.replaceChildren();
+    appendSubmissionDays(host, data.submissions);
 
     renderSubmissionBlogs(host);
 
