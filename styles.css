@@ -826,6 +826,13 @@ button.leader-row:hover{background:var(--teal-soft)}
 .window-back:hover{background:var(--teal-soft)}
 .image-lightbox>.window-back{position:fixed;top:18px;right:68px;z-index:1}
 #showcaseView{container-type:inline-size}
+#showcaseView .submission-days{margin:20px 0}
+#showcaseView .submission-day+.submission-day{margin-top:26px}
+#showcaseView .submission-day-heading{display:flex;align-items:center;gap:12px;font-size:15px;margin:0 0 14px;color:var(--ink)}
+#showcaseView .submission-day>.solution-waterfall{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:20px;margin:0}
+#showcaseView .submission-day>.solution-waterfall>.solution-card{display:block;min-width:0;margin-bottom:0}
+@container(min-width:650px){#showcaseView .submission-day>.solution-waterfall{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container(min-width:1140px){#showcaseView .submission-day>.solution-waterfall{grid-template-columns:repeat(3,minmax(0,1fr))}}
 #showcaseView .solution-waterfall{column-count:1}
 @container(min-width:650px){#showcaseView .solution-waterfall{column-count:2}}
 @container(min-width:1140px){#showcaseView .solution-waterfall{column-count:3}}

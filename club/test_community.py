@@ -85,6 +85,50 @@ class CommunityTests(TestCase):
         previous = self.client.get(f'/api/showcase?week={prior.pk}').json()
         self.assertEqual(previous['problems'][0]['count'], 1)
 
+    def test_showcase_only_lists_started_weeks_and_opens_at_boundary(self):
+        future = self.semester.weeks.filter(starts_at__gt=timezone.now()).order_by('starts_at').first()
+        with patch('django.utils.timezone.now', return_value=future.starts_at-timedelta(seconds=1)):
+            data = self.client.get('/api/showcase').json()
+            expected = list(self.semester.weeks.filter(starts_at__lt=future.starts_at)
+                            .order_by('-starts_at').values_list('pk', flat=True))
+            self.assertEqual([w['id'] for w in data['weeks']], expected)
+            self.assertEqual(data['week'], expected[0])
+            self.assertEqual(self.client.get(f'/api/showcase?week={future.pk}').status_code, 404)
+        with patch('django.utils.timezone.now', return_value=future.starts_at):
+            data = self.client.get('/api/showcase').json()
+            self.assertEqual(data['weeks'][0]['id'], future.pk)
+            self.assertEqual(data['week'], future.pk)
+            self.assertEqual(data['current_week'], future.pk)
+
+    def test_showcase_defaults_to_latest_history_when_no_current_week(self):
+        with patch('django.utils.timezone.now', return_value=self.semester.weeks.latest('ends_at').ends_at+timedelta(days=1)):
+            self.client.force_login(self.author)
+            data = self.client.get('/api/showcase').json()
+        self.assertIsNone(data['current_week'])
+        self.assertEqual(data['week'], self.semester.weeks.latest('starts_at').pk)
+
+    def test_showcase_empty_before_first_week(self):
+        with patch('django.utils.timezone.now', return_value=self.semester.weeks.earliest('starts_at').starts_at-timedelta(seconds=1)):
+            data = self.client.get('/api/showcase').json()
+        self.assertEqual(data['weeks'], [])
+        self.assertIsNone(data['week'])
+        self.assertEqual(data['problems'], [])
+
+    def test_problem_history_paginates_by_record_date_before_upload_time(self):
+        today = timezone.localdate()
+        records = [Submission.objects.create(team=self.team, member=self.author_member,
+            semester=self.semester, week=self.week, problem=self.problem, record_date=today)
+            for _ in range(21)]
+        makeup = Submission.objects.create(team=self.team, member=self.author_member,
+            semester=self.semester, week=self.week, problem=self.problem, record_date=today-timedelta(days=1))
+        first = self.client.get(f'/api/problems/{self.problem.pk}/submissions').json()
+        second = self.client.get(f'/api/problems/{self.problem.pk}/submissions?page=2').json()
+        self.assertEqual([s['id'] for s in first['submissions']], [s.pk for s in reversed(records[1:])])
+        self.assertEqual(first['next'], 2)
+        self.assertEqual([s['id'] for s in second['submissions']], [records[0].pk, makeup.pk])
+        self.assertEqual(second['submissions'][-1]['record_date'], (today-timedelta(days=1)).isoformat())
+        self.assertIsNone(second['next'])
+
     def test_same_problem_two_members_and_pagination(self):
         self.submit()
         self.client.force_login(self.reader)
