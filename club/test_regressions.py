@@ -163,7 +163,7 @@ class RegressionTests(TestCase):
     def test_bad_team_settings_do_not_partially_create_team(self):
         self.client.force_login(User.objects.get(username="admin"))
         response = self.client.post('/api/auth/create-team', json.dumps({'team_name': 'bad', 'team_code': 'BAD',
-            'join_password': 'password-123', 'admin_invite': 'password-123', 'term_days': 'invalid'}), content_type='application/json')
+            'admin_invite': 'password-123', 'min_score': 'invalid'}), content_type='application/json')
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Team.objects.filter(code='BAD').exists())
 

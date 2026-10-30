@@ -140,6 +140,8 @@ def perform_checkin(member):
 @transaction.atomic
 def makeup_checkin(member, checkin_date):
     """Spend one ticket to persist a single historical submission permission."""
+    from .semester_calendar import ensure_current_semester
+    ensure_current_semester(member.team)
     if checkin_date >= timezone.localdate():
         raise ValueError('补签请选择今天之前的日期')
     today = timezone.localdate()

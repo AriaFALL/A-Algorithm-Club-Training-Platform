@@ -17,6 +17,9 @@
     const toolbarButtons = document.querySelectorAll('.toolbar-btn');
 
     if (!openButton || !overlay || !markdownInput) return;
+    // Keep viewport positioning outside the submission modal's transformed,
+    // scrollable and backdrop-filtered containing block.
+    document.body.append(overlay);
 
     // 配置 marked.js
     if (typeof marked !== 'undefined') {

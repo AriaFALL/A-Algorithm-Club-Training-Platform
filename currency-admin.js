@@ -191,7 +191,6 @@ const CurrencyAdminModule = (() => {
       return;
     }
     const streaks = config.streak_rewards.length || config.currency_enabled ? config.streak_rewards : [{days:3,reward:1},{days:7,reward:2}];
-    const contests = config.contest_rewards.length || config.currency_enabled ? config.contest_rewards : [{problems_solved:2,reward:1,is_ak:false},{problems_solved:4,reward:2,is_ak:false},{problems_solved:1,reward:5,is_ak:true}];
     container.innerHTML = `
       <form class="currency-config-panel workbench-form">
         <h3>货币系统配置</h3>
@@ -207,9 +206,6 @@ const CurrencyAdminModule = (() => {
           <h4>同步比赛 · 单题奖励</h4><p class="muted">萌新：大一上；老登：大一下及以上。三档按平台题目难度划分；0 表示不奖励。2026-11-01 起的比赛生效；有准确时间时仅正赛时段内 AC 可领奖；已确认 AC 但时间无法核验时，宽松兜底发奖；已知赛外记录不发奖。</p>
           <div class="problem-reward-grid">${['beginner','experienced'].map(group=>`<fieldset><legend>${group==='beginner'?'萌新':'老登'}</legend>${(config.problem_rewards?.[group] || [1,2,3]).map((amount,index)=>`<label>第 ${index+1} 档 RBC<input type="number" data-problem-reward="${group}" data-tier="${index}" min="0" max="100000" required value="${amount}"></label>`).join('')}</fieldset>`).join('')}</div>
           <details><summary>平台难度档位说明</summary><p class="muted">力扣：萌新 600 / 1200，老登 1000 / 1500；CF：1000 / 1600、1400 / 2000；AtCoder：400 / 1000、800 / 1600；牛客 Rating：1100 / 1600、1600 / 2100；洛谷难度等级：2 / 4、4 / 6。均按“低于第一界限／低于第二界限／其余”分档。缺少难度时按第一档发奖；不会编造题目 Rating。</p></details>
-          <h4>旧版截图比赛奖励配置</h4><p class="muted">保留旧规则配置，不用于日程同步的单题领奖；旧截图入口仅保存材料，不会自动审核发币。</p>
-          <div class="currency-contest-rules"></div>
-          <div class="currency-rule-actions"><button type="button" class="secondary-button" data-add-contest>＋ 添加过题奖励</button><button type="button" class="secondary-button" data-add-ak>＋ 添加 AK 奖励</button></div>
         </fieldset>
         <div class="workbench-form-actions"><button type="submit" class="primary-button">保存货币配置</button><span class="currency-config-status" role="status"></span></div>
       </form>`;
@@ -218,22 +214,14 @@ const CurrencyAdminModule = (() => {
     const options = container.querySelector('fieldset');
     const addRow = (kind, rule) => {
       const row = document.createElement('div'); row.className='currency-rule-row'; row.dataset.kind=kind;
-      row.innerHTML = kind === 'streak'
-        ? `<label>连签天数<input class="rule-threshold" aria-label="连签天数" type="number" min="1" max="7" required value="${rule.days}"></label>`
-        : rule.is_ak ? '<strong>AK（全部通过）</strong>' : `<label>过题数量<input class="rule-threshold" aria-label="过题数量" type="number" min="1" max="100000" required value="${rule.problems_solved}"></label>`;
-      row.dataset.ak=String(Boolean(rule.is_ak));
+      row.innerHTML = `<label>连签天数<input class="rule-threshold" aria-label="连签天数" type="number" min="1" max="7" required value="${rule.days}"></label>`;
       row.innerHTML += `<label>奖励 RBC<input class="rule-reward" aria-label="奖励 RBC" type="number" min="1" max="100000" required value="${rule.reward}"></label><button class="text-button" type="button" aria-label="删除奖励规则">删除</button>`;
       row.querySelector('button').onclick=()=>row.remove();
-      container.querySelector(kind==='streak' ? '.currency-streak-rules' : '.currency-contest-rules').append(row);
+      container.querySelector('.currency-streak-rules').append(row);
     };
-    streaks.forEach(r=>addRow('streak',r)); contests.forEach(r=>addRow('contest',r));
+    streaks.forEach(r=>addRow('streak',r));
     form.elements.currency_enabled.onchange=()=>{options.hidden=!form.elements.currency_enabled.checked;options.disabled=options.hidden;};
     container.querySelector('[data-add-streak]').onclick=()=>addRow('streak',{days:7,reward:2});
-    container.querySelector('[data-add-contest]').onclick=()=>addRow('contest',{problems_solved:2,reward:1,is_ak:false});
-    container.querySelector('[data-add-ak]').onclick=()=>{
-      if (container.querySelector('[data-kind="contest"][data-ak="true"]')) {status.textContent='只能设置一条 AK 奖励';return;}
-      addRow('contest',{problems_solved:1,reward:5,is_ak:true});
-    };
     form.onsubmit=async event=>{
       event.preventDefault(); event.stopPropagation();
       const button=event.submitter; button.disabled=true; status.textContent='正在保存…';
@@ -243,7 +231,6 @@ const CurrencyAdminModule = (() => {
           payload.daily_checkin_reward=Number(form.elements.daily_checkin_reward.value);
           payload.problem_rewards=Object.fromEntries(['beginner','experienced'].map(group=>[group,[...container.querySelectorAll('[data-problem-reward='+group+']')].map(input=>Number(input.value))]));
           payload.streak_rewards=[...container.querySelectorAll('[data-kind="streak"]')].map(row=>({days:Number(row.querySelector('.rule-threshold').value),reward:Number(row.querySelector('.rule-reward').value)}));
-          payload.contest_rewards=[...container.querySelectorAll('[data-kind="contest"]')].map(row=>({problems_solved:row.dataset.ak==='true'?1:Number(row.querySelector('.rule-threshold').value),reward:Number(row.querySelector('.rule-reward').value),is_ak:row.dataset.ak==='true'}));
           const file=form.elements.currency_icon.files[0];
           if(file){if(file.size>131072)throw new Error('SVG 图标不能超过 128 KB');payload.currency_icon_svg=await file.text();}
           else if(form.elements.remove_icon?.checked)payload.currency_icon_svg=null;

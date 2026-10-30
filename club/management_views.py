@@ -299,10 +299,8 @@ def team_configuration(request, team_id):
         return api_error('仅支持GET或PUT', 405)
     data = body(request)
     name,code=[str(data.get(k,'')).strip() for k in ('name','code')]
-    password=data.get('join_password','')
-    if not isinstance(password,str):return api_error('加入密码格式无效')
-    if not 1 <= len(name) <= 80 or not 1 <= len(code) <= 32 or (password and not 8 <= len(password) <= 200):
-        return api_error('团队名、团队码或加入密码长度无效')
+    if not 1 <= len(name) <= 80 or not 1 <= len(code) <= 32:
+        return api_error('团队名或团队码长度无效')
     if Team.objects.filter(code__iexact=code).exclude(pk=team_id).exists():
         return api_error('团队码已被使用')
     fields = ['min_submissions', 'min_score', 'screenshot_points', 'logic_points', 'blog_points']
@@ -313,9 +311,6 @@ def team_configuration(request, team_id):
     except ValueError as exc:
         return api_error(str(exc))
     team.name, team.code = name, code
-    if password:
-        from django.contrib.auth.hashers import make_password
-        team.join_password_hash = make_password(password)
     team.save()
     if semester:
         for field in fields + ['require_both']:

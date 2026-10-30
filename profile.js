@@ -2,7 +2,7 @@
 (() => {
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const number = value => typeof value === 'number' ? value.toLocaleString('zh-CN') : '—';
-  let page, data, opened = false, closing = false, poll, objectURL, allowed = false, generation = 0;
+  let page, backdrop, data, opened = false, closing = false, poll, objectURL, allowed = false, generation = 0;
   const entry = document.getElementById('openProfile');
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -33,14 +33,13 @@
   }
   function renderGrade() {
     page.querySelector('#personalGrade').textContent = data.grade_label;
-    page.querySelector('#gradeHelp').textContent = '年级仅在注册时选择，之后按 2 月 15 日、8 月 1 日自动晋级。';
   }
   function buildPage() {
     page = document.createElement('section'); page.id = 'personalPage'; page.className = 'personal-page';
     page.hidden = true; page.setAttribute('role', 'dialog'); page.setAttribute('aria-modal', 'true');
     page.setAttribute('aria-labelledby', 'personalTitle');
     page.innerHTML = `
-      <div class="personal-top"><button id="profileBack" class="personal-back" aria-label="返回主页面" type="button">&lt;</button><span>个人空间</span><small>PROFILE & ACCOUNTS</small></div>
+      <div class="personal-top"><button id="profileBack" class="personal-back" aria-label="返回主页面" type="button"><svg class="ui-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 5 7 7-7 7"/></svg></button><span>个人空间</span><small>PROFILE & ACCOUNTS</small></div>
       <main class="personal-content">
         <header class="personal-heading"><p class="kicker">YOUR ALGORITHM JOURNEY</p><h1 id="personalTitle">个人信息</h1><p>整理你的个人资料，连接各个平台的训练足迹。</p></header>
         <p id="profileMessage" class="profile-message" role="status" aria-live="polite"></p>
@@ -50,17 +49,18 @@
             <div class="personal-section-copy"><span class="personal-step">01 / ABOUT YOU</span><h2 id="basicsTitle">基本资料</h2><p id="personalAccount"></p></div>
             <form id="personalForm" class="personal-form">
               <div class="personal-avatar-field"><span id="personalAvatar" class="personal-avatar"></span><label class="avatar-picker">更换头像<input id="personalAvatarFile" name="avatar" type="file" accept="image/png,image/jpeg,image/webp"></label><small>PNG / JPEG / WebP · 最大 3 MB</small></div>
-              <div class="personal-name-field"><label for="personalName">昵称</label><input id="personalName" name="name" required maxlength="40" autocomplete="nickname"><small id="nicknameScope"></small><label for="personalGrade">年级</label><span id="personalGrade"></span><small id="gradeHelp"></small><button type="submit" class="primary-button">保存个人资料</button></div>
+              <div class="personal-name-field"><div class="personal-identity-row"><label class="personal-inline-field" for="personalName"><span>昵称</span><input id="personalName" name="name" required maxlength="40" autocomplete="nickname"></label><div class="personal-inline-field"><span id="personalGradeLabel">年级</span><output id="personalGrade" aria-labelledby="personalGradeLabel"></output></div></div><button type="submit" class="primary-button">保存个人资料</button></div>
             </form>
           </section>
           <section class="personal-basics personal-password" aria-labelledby="passwordTitle"><div><h2 id="passwordTitle">修改密码</h2><p class="muted">验证当前密码后设置新密码。</p></div><form id="personalPasswordForm" class="personal-name-field"><label>当前密码<input type="password" name="old_password" autocomplete="current-password" required></label><label>新密码<input type="password" name="new_password" autocomplete="new-password" minlength="8" maxlength="128" required></label><label>确认新密码<input type="password" name="confirm_password" autocomplete="new-password" minlength="8" maxlength="128" required></label><button type="submit" class="primary-button">修改密码</button><p id="passwordMessage" role="status"></p></form></section>
           <section class="personal-platform-section" aria-labelledby="platformTitle"><div class="personal-platform-heading"><div><span class="personal-step">02 / CONNECT YOUR PLATFORMS</span><h2 id="platformTitle">算法平台</h2><p>绑定公开账号，查看 Rating、比赛表现与做题信息。</p></div><span id="bindingCount" class="binding-count"></span></div>
-            <p class="profile-binding-note">绑定表示关联公开资料，不代表平台官方身份认证。无需提供第三方密码；同步失败时保留上次成功数据。</p>
             <div id="platformGrid" class="platform-grid"></div>
           </section>
         </div>
       </main>`;
-    document.body.append(page);
+    backdrop = document.createElement('div'); backdrop.className = 'personal-backdrop'; backdrop.hidden = true;
+    backdrop.setAttribute('aria-hidden', 'true'); backdrop.onclick = back;
+    document.body.append(backdrop, page);
     page.querySelector('#platformGrid').addEventListener('focusout', () => {
       setTimeout(() => { if (opened && data) renderBindings(); }, 0);
     });
@@ -172,7 +172,8 @@
     if (!page) buildPage();
     opened = true; generation++;
     if (push && location.hash !== '#profile') history.pushState({...history.state, personalPage:true}, '', '#profile');
-    page.hidden = false; document.querySelector('.app-shell').inert = true; document.body.classList.add('personal-open');
+    backdrop.hidden = false; page.hidden = false; document.querySelector('.app-shell').inert = true; document.body.classList.add('personal-open');
+    backdrop.animate([{opacity:0}, {opacity:1}], {duration:reduced() ? 0 : 320});
     page.animate([{transform:'translateX(100%)'}, {transform:'translateX(0)'}], {duration:reduced() ? 0 : 320, easing:'cubic-bezier(.2,.75,.25,1)'});
     page.querySelector('#profileBack').focus();
     const version = generation;
@@ -187,15 +188,15 @@
         page.querySelector('#personalName').value = data.name; avatarPreview(data.avatar, data.name); page.dataset.loaded = 'true';
       }
       page.querySelector('#personalAccount').textContent = `登录账号：${data.account}`;
-      page.querySelector('#nicknameScope').textContent = `昵称用于当前团队「${data.team_name}」；头像与平台绑定在你的团队间共享。`;
       renderBindings(); schedulePoll();
     } catch (error) { if (opened) { page.querySelector('#profileLoading').hidden = true; message(error.message, true); } }
   }
   async function close() {
     if (!opened || closing) return;
     opened = false; closing = true; generation++; clearTimeout(poll);
+    backdrop.animate([{opacity:1}, {opacity:0}], {duration:reduced() ? 0 : 260, fill:'forwards'});
     await page.animate([{transform:'translateX(0)'}, {transform:'translateX(100%)'}], {duration:reduced() ? 0 : 260, easing:'cubic-bezier(.4,0,.8,.3)'}).finished;
-    page.hidden = true; closing = false; document.querySelector('.app-shell').inert = false; document.body.classList.remove('personal-open'); entry.focus();
+    page.hidden = true; backdrop.hidden = true; backdrop.getAnimations().forEach(animation => animation.cancel()); closing = false; document.querySelector('.app-shell').inert = false; document.body.classList.remove('personal-open'); entry.focus();
     if (location.hash === '#profile') open(false);
   }
   function back() {

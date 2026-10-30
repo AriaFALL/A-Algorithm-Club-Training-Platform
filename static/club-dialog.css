@@ -1,0 +1,19 @@
+.swal2-container.club-dialog-container{z-index:15000;padding:20px;background:rgba(32,54,84,.22);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+.club-dialog.swal2-popup{width:440px;max-width:100%;padding:28px;border-radius:22px;background:#FFFDF8;color:#203654;font-family:inherit;box-shadow:0 24px 80px #20365429;overflow:hidden;text-align:left}
+.club-dialog .club-dialog-symbol{justify-content:center;align-items:center;width:48px;height:48px;margin:0 0 18px;border:0;border-radius:14px;color:#245EC0;background:#DCEAFF}
+.club-dialog-symbol svg{width:25px;height:25px}
+.club-dialog .club-dialog-title{padding:0;margin:0;font-size:22px;font-weight:700;line-height:1.4;text-align:left;color:#203654}
+.club-dialog .club-dialog-copy{padding:0;margin:12px 0 0;font-size:14px;line-height:1.8;text-align:left;color:#65758E;white-space:pre-line;overflow-wrap:anywhere}
+.club-dialog .club-dialog-actions{width:100%;justify-content:flex-end;gap:10px;margin:26px 0 0;padding:0}
+.club-dialog-actions button{min-height:44px;margin:0;padding:11px 18px;border-radius:12px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:background .18s,box-shadow .18s}
+.club-dialog-confirm{border:1px solid #245EC0;background:#245EC0;color:#FFFFFF;box-shadow:0 5px 14px #245ec01a}
+.club-dialog-confirm:hover{background:#1C4FAD}
+.club-dialog-cancel{border:1px solid #D5E5FB;background:#FFFFFF;color:#203654}
+.club-dialog-cancel:hover{background:#F6F9FF}
+.club-dialog-actions button:focus-visible{outline:2px solid #245EC0;outline-offset:3px}
+.club-dialog-enter{animation:club-dialog-in .22s cubic-bezier(.16,1,.3,1)}
+.club-dialog-leave{animation:club-dialog-out .12s ease-in forwards}
+@keyframes club-dialog-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes club-dialog-out{to{opacity:0;transform:translateY(4px)}}
+@media(max-width:480px){.club-dialog.swal2-popup{padding:24px;border-radius:20px}.club-dialog .club-dialog-title{font-size:20px}.club-dialog-actions button{flex:1}.club-dialog .club-dialog-actions{flex-wrap:nowrap}}
+@media(prefers-reduced-motion:reduce){.club-dialog-enter,.club-dialog-leave{animation:none}.club-dialog-actions button{transition:none}}

@@ -1,0 +1,208 @@
+/* Enhanced TRAINING ATLAS visual effects */
+
+/* SVG layer styling */
+.atlas-svg-layer {
+  mix-blend-mode: normal;
+  opacity: 0.8;
+}
+
+.atlas-orbit-system {
+  transform-origin: center;
+}
+
+.atlas-energy-node circle {
+  filter: drop-shadow(0 0 8px rgba(36, 94, 192, 0.6));
+}
+
+/* Blob animations */
+.atlas-blob {
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
+}
+
+.atlas-stage:hover .atlas-blob {
+  opacity: 0.6;
+}
+
+/* Constellation styling */
+.atlas-constellation line {
+  filter: drop-shadow(0 0 2px rgba(36, 94, 192, 0.4));
+}
+
+/* Enhanced stage container */
+.atlas-stage {
+  will-change: transform;
+  perspective: 1000px;
+}
+
+/* Shimmer effect overlay */
+.atlas-stage::before {
+  animation: atlas-shimmer 8s ease-in-out infinite;
+}
+
+@keyframes atlas-shimmer {
+  0%, 100% {
+    opacity: 0.3;
+    transform: rotate(-12deg) scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: rotate(-12deg) scale(1.05);
+  }
+}
+
+/* Enhanced sheen with gradient animation */
+.stage-sheen {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.0) 0%,
+    rgba(255, 255, 255, 0.28) 50%,
+    rgba(255, 255, 255, 0.0) 100%
+  );
+  background-size: 200% 200%;
+  animation: atlas-sheen-sweep 6s ease-in-out infinite;
+}
+
+@keyframes atlas-sheen-sweep {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Grid items with hover glow */
+.stage-grid i {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.stage-grid i::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 4px;
+  background: radial-gradient(circle, rgba(36, 94, 192, 0.6) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.atlas-stage:hover .stage-grid i:nth-child(2)::after,
+.atlas-stage:hover .stage-grid i:nth-child(7)::after,
+.atlas-stage:hover .stage-grid i:nth-child(10)::after {
+  opacity: 1;
+}
+
+/* Path nodes with pulse effect */
+.stage-path span {
+  animation: atlas-node-pulse 2s ease-in-out infinite;
+}
+
+.stage-path span:nth-child(1) { animation-delay: 0s; }
+.stage-path span:nth-child(2) { animation-delay: 0.2s; }
+.stage-path span:nth-child(3) { animation-delay: 0.4s; }
+.stage-path span:nth-child(4) { animation-delay: 0.6s; }
+.stage-path span:nth-child(5) { animation-delay: 0.8s; }
+
+@keyframes atlas-node-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 5px rgba(241, 208, 125, 0.14);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 8px rgba(241, 208, 125, 0.25);
+  }
+}
+
+/* Float cards with 3D effect */
+.stage-float {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+}
+
+.stage-float:hover {
+  transform: translateZ(10px) scale(1.02) rotate(0deg) !important;
+  box-shadow: 0 20px 40px rgba(8, 37, 42, 0.3);
+}
+
+/* Stage title with text glow */
+.stage-title {
+  filter: drop-shadow(0 4px 12px rgba(243, 255, 250, 0.3));
+  transform-origin: left center;
+}
+
+/* Orbit elements with glow */
+.stage-orbit {
+  box-shadow:
+    inset 0 0 20px rgba(242, 202, 87, 0.2),
+    0 0 20px rgba(242, 202, 87, 0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1100px) {
+  .atlas-svg-layer {
+    opacity: 0.6;
+  }
+}
+
+@media (max-width: 760px) {
+  .atlas-svg-layer {
+    opacity: 0.4;
+  }
+
+  .stage-sheen {
+    animation-duration: 8s;
+  }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .atlas-svg-layer,
+  .atlas-blob,
+  .stage-sheen,
+  .stage-grid i,
+  .stage-path span,
+  .stage-float,
+  .stage-orbit {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .atlas-svg-layer {
+    opacity: 0.3;
+  }
+}
+
+/* Additional sparkle effect on hover */
+.atlas-stage::after {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #245EC0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+@keyframes atlas-sparkle {
+  0% {
+    transform: translate(0, 0) scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--sparkle-x), var(--sparkle-y)) scale(1);
+    opacity: 0;
+  }
+}
+
+/* Keep decorative graphics beneath the live score and labels. */
+#dashboardView .atlas-stage{isolation:isolate}
+#dashboardView .atlas-svg-layer{mix-blend-mode:normal;opacity:.8}
+#dashboardView .stage-header,#dashboardView .stage-title,#dashboardView .stage-caption,#dashboardView .stage-float{z-index:2}

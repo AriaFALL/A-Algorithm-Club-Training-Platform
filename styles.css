@@ -866,3 +866,7 @@ button.leader-row:hover{background:var(--teal-soft)}
 @media(prefers-reduced-motion:reduce){.contest-problem.claimable.reward-shake{animation:none}}
 
 .rating-platform-filter{display:flex;align-items:center;gap:10px;padding:14px 0;color:var(--muted);font-size:12px}.rating-platform-filter[hidden]{display:none}.rating-platform-filter select{padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:white;color:var(--ink);max-width:100%}.leaderboard-panel .leader-count,.full-leaderboard .leader-count{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.leaderboard-panel .leader-score small,.full-leaderboard .leader-score small{white-space:nowrap}@media(max-width:760px){.leaderboard-panel .leader-count,.full-leaderboard .leader-count{display:none}.segmented--ranking .segment{padding:10px 8px;font-size:12px}}
+
+/* Hide scrollbars globally without disabling scrolling or keyboard navigation. */
+*{scrollbar-width:none!important;-ms-overflow-style:none!important;scrollbar-gutter:auto!important}
+*::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}

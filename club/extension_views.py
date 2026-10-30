@@ -61,7 +61,9 @@ def resources(request, resource_id=None):
             picture = Image.open(cover)
             if picture.format not in {'PNG', 'JPEG', 'WEBP'} or picture.width * picture.height > 16000000:
                 raise ValueError()
-            picture = ImageOps.fit(ImageOps.exif_transpose(picture).convert('RGB'), (800, 800))
+            picture = ImageOps.exif_transpose(picture).convert('RGBA')
+            background = Image.new('RGBA', picture.size, '#DCEAFF')
+            picture = ImageOps.fit(Image.alpha_composite(background, picture).convert('RGB'), (800, 800))
             output = io.BytesIO(); picture.save(output, 'JPEG', quality=88)
             cover = ContentFile(output.getvalue(), name=f'{uuid.uuid4().hex}.jpg')
         except (OSError, ValueError, Image.DecompressionBombError):

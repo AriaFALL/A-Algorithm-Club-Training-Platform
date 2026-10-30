@@ -2,7 +2,6 @@ from datetime import date
 
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
-from django.contrib.auth.hashers import make_password
 
 from club.models import Semester, Team, TeamMembership, create_internal_username
 from club.services import build_weeks
@@ -14,7 +13,6 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--team-code", default="ACM2026")
         parser.add_argument("--team-name", default="ACM 校队")
-        parser.add_argument("--join-password", default="join-me-2026")
         parser.add_argument("--member-password", default="member-2026")
 
     def handle(self, *args, **options):
@@ -22,9 +20,8 @@ class Command(BaseCommand):
         owner, _ = User.objects.get_or_create(username="seed-owner")
         owner.set_password(options["member_password"])
         owner.save(update_fields=["password"])
-        team, created = Team.objects.get_or_create(code=team_code, defaults={"name": options["team_name"], "join_password_hash": "", "created_by": owner})
+        team, created = Team.objects.get_or_create(code=team_code, defaults={"name": options["team_name"], "created_by": owner})
         team.created_by = owner
-        team.join_password_hash = make_password(options["join_password"])
         team.save()
         membership, _ = TeamMembership.objects.get_or_create(user=owner, team=team, defaults={"display_name": "林同学", "role": TeamMembership.MEMBER})
         Semester.objects.filter(team=team, is_active=True).update(is_active=False)

@@ -14,6 +14,11 @@ RATING_PLATFORMS = {
 def ranking_data(member, scope, platform='codeforces'):
     members = list(TeamMembership.objects.filter(team=member.team, is_active=True,
         user__is_active=True, user__is_superuser=False).order_by('id'))
+    if scope == 'wealth':
+        from .grades import grade_on
+        from .models import UserProfile
+        profiles = {p.user_id: p for p in UserProfile.objects.filter(user_id__in=[m.user_id for m in members])}
+        members = [m for m in members if grade_on(profiles.get(m.user_id)) != 4]
     rows = {m.pk: {'memberId':m.pk, 'name':m.display_name, 'isCurrent':m.pk==member.pk} for m in members}
     if scope == 'checkin':
         days = defaultdict(set)
@@ -29,6 +34,11 @@ def ranking_data(member, scope, platform='codeforces'):
                 streak += 1
                 cursor -= timedelta(days=1)
             row.update(value=streak, unit='天', detail='当前连续签到')
+    elif scope == 'solved':
+        from .solved import lifetime_solved_counts
+        totals = lifetime_solved_counts([m.user_id for m in members])
+        for m in members:
+            rows[m.pk].update(value=totals.get(m.user_id, 0), unit='题', detail='累计过题')
     elif scope == 'wealth':
         balances = dict(CurrencyBalance.objects.filter(team=member.team, member_id__in=rows).values_list('member_id','balance'))
         for mid,row in rows.items(): row.update(value=balances.get(mid,0), unit='RBC Coins', detail='当前余额')

@@ -113,8 +113,8 @@ Pulse Atlas 将算法训练表现为一条可追踪的每周节拍：用户进�
 - `POST /api/auth/login`：`account`, `password`
 - `POST /api/auth/register`：`account`, `password`, `confirm_password`
 - `POST /api/auth/logout`
-- `POST /api/auth/join`：`team_code`, `join_password`, `name`, `admin_invite`
-- `POST /api/auth/create-team`：`team_name`, `team_code`, `term_days`, `min_score`, `screenshot_points`, `logic_points`, `blog_points`, `join_password`, `admin_invite`
+- `POST /api/auth/join`：`team_code`, `name`, `admin_invite`
+- `POST /api/auth/create-team`：`team_name`, `team_code`, `term_days`, `min_score`, `screenshot_points`, `logic_points`, `blog_points`, `admin_invite`
 - `POST /api/team/select`：`team_id`
 - `GET /api/me`
 

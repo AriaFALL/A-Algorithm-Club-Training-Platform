@@ -33,27 +33,31 @@ document.addEventListener('click', async (event) => { if (event.target.id !== 'l
 const liveStyle = document.createElement('style'); liveStyle.textContent = '.my-submissions-live{margin-top:14px;padding:21px}.live-submission-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid #edf0ee}.live-submission-info{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}.live-submission-info strong{font-size:12px}.live-submission-info small{font-size:10px;color:var(--muted)}.submission-thumb{width:44px;height:44px;border-radius:7px;background:#eef7f5;display:grid;place-items:center;overflow:hidden;color:var(--teal);flex:none}.submission-thumb img{width:100%;height:100%;object-fit:cover}.live-submission-row .review-view{color:var(--teal-dark);font-size:11px;font-weight:700;white-space:nowrap}.upload-preview{width:80px;height:55px;object-fit:cover;border-radius:6px;margin-bottom:4px}.status-tag.rejected{color:#b35d55;background:#fbeceb}'; document.head.appendChild(liveStyle);
 const accessibilityStyle = document.createElement('style'); accessibilityStyle.textContent = '.toast{transition:transform .25s ease,opacity .25s ease}.search-box input:focus-visible{outline:2px solid var(--teal);outline-offset:2px}'; document.head.appendChild(accessibilityStyle);
 const escapeHtml = (value='') => String(value).replace(/[&<>'"]/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+function memberAvatar(memberId, name, className='leader-avatar') {
+  return `<span class="${className} synced-member-avatar" data-avatar-member="${Number(memberId)}">${escapeHtml((name || '').slice(0,1))}<img src="/api/members/${Number(memberId)}/avatar" alt="" loading="lazy" onerror="this.remove()" /></span>`;
+}
 
 function renderLeaderboard(mode='checkin', target='#leaderboardList') {
   const el = $(target);
   if (!el) return;
   const selection = rankingSelection(target);
-  const rows = rankingData[rankingKey(selection.scope,selection.platform)];
+  const allRows = rankingData[rankingKey(selection.scope,selection.platform)];
+  const rows = target === '#leaderboardList' ? allRows?.filter(row => row.isCurrent) : allRows;
   const filter = selection.panel?.querySelector('.rating-platform-filter');
   if (filter) filter.hidden = selection.scope !== 'rating';
   el.innerHTML = !rows ? '<div class="queue-empty" role="status">正在加载榜单…</div>' : !rows.length
-    ? `<div class="queue-empty">${selection.scope === 'rating' ? '当前团队暂无绑定此平台的成员' : '暂无排行榜数据'}</div>`
-    : (target === '#leaderboardList' ? rows.slice(0,5) : rows).map(row => `
+    ? `<div class="queue-empty">${target === '#leaderboardList' ? '你在当前榜单暂无排名' : selection.scope === 'rating' ? '当前团队暂无绑定此平台的成员' : '暂无排行榜数据'}</div>`
+    : rows.map(row => `
       <button type="button" class="leader-row ${row.isCurrent ? 'you' : ''}" data-ranking-member="${row.memberId}" aria-label="查看${escapeHtml(row.name)}的历史提交">
         <span class="leader-rank ${row.rank && row.rank <= 3 ? 'top' : ''}">${row.rank || '—'}</span>
-        <span class="leader-member"><span class="leader-avatar">${escapeHtml(row.name.slice(0,1))}</span><span class="leader-name">${escapeHtml(row.name)}${row.isCurrent ? '（你）' : ''}</span></span>
+        <span class="leader-member">${memberAvatar(row.memberId,row.name)}<span class="leader-name">${escapeHtml(row.name)}${row.isCurrent ? '（你）' : ''}</span></span>
         <span class="leader-score">${row.value ?? '—'}<small> ${escapeHtml(row.unit)}</small></span>
         <span class="leader-count">${escapeHtml(row.detail)}${row.value === null ? ' · 暂无评级' : ''}</span>
       </button>`).join('');
   if (target === '#leaderboardList') {
     const current = rows?.find(row => row.isCurrent);
     if ($('#yourRankValue')) $('#yourRankValue').textContent = current?.rank ? `#${current.rank}` : '—';
-    if ($('#yourRankChange')) $('#yourRankChange').textContent = {checkin:'当前连续签到',rating:'平台已同步 Rating',wealth:'当前 Coins 余额'}[selection.scope];
+    if ($('#yourRankChange')) $('#yourRankChange').textContent = {checkin:'当前连续签到',rating:'平台已同步 Rating',solved:'累计过题',wealth:'当前 Coins 余额'}[selection.scope];
   }
 }
 
@@ -67,7 +71,10 @@ function setView(view) {
   $$('.page-view').forEach((el) => el.classList.toggle('active', el === nextView));
   $$('.nav-item[data-view]').forEach((el) => el.classList.toggle('active', el.dataset.view === view));
   $('#pageTitle').textContent = pageTitles[view] || '总览';
-  if (nextView) {
+  // Hidden pages have zero-size tabs at startup; measure after making them visible.
+  nextView?.querySelectorAll('.segmented').forEach(group => syncSegmented(group));
+  // The overview owns its entrance animation; do not stack the route animation.
+  if (nextView && view !== 'dashboard') {
     nextView.classList.remove('view-enter');
     void nextView.offsetWidth;
     nextView.classList.add('view-enter');
@@ -197,8 +204,11 @@ function renderPulseDays(dashboard) {
   pulseToday = dashboard.today;
   if (!track || !pulseDays.length) return;
   track.style.setProperty('--pulse-days', String(pulseDays.length));
-  track.innerHTML = pulseDays.map((day, i) => `<button class="pulse-week ${day.submitted ? 'is-complete' : ''} ${day.makeupOpen ? 'is-unlocked' : ''} ${day.isToday ? 'is-current' : ''}" data-pulse-date="${day.date}" type="button" role="tab" aria-selected="false" aria-label="${day.date} ${day.isMakeup ? '已补签' : day.makeupOpen ? '已开放补交，待提交' : day.checkedIn && !day.hasSubmission ? '已签到' : day.submitted ? '已提交' : '未提交'}"><span>${day.date.slice(5).replace('-', '/')}</span></button>`).join('') + '<i class="pulse-line" aria-hidden="true"></i>';
-  $('#pulseStreak').textContent = `你已连续签到${dashboard.streakDays || 0}天`;
+  track.innerHTML = pulseDays.map((day, i) => `<button class="pulse-week ${day.submitted ? 'is-complete' : ''} ${day.makeupOpen ? 'is-unlocked' : ''} ${day.isToday ? 'is-current' : ''}" data-pulse-date="${day.date}" type="button" role="tab" aria-selected="false" aria-label="${day.date} ${day.isMakeup ? '已补签' : day.makeupOpen ? '已开放补交，待提交' : day.checkedIn && !day.hasSubmission ? '已签到' : day.submitted ? '已提交' : '未提交'}"><span>${day.date.slice(-2)}</span></button>`).join('') + '<i class="pulse-line" aria-hidden="true"></i>';
+  const streakDays = Math.max(0, Math.trunc(Number(dashboard.streakDays) || 0));
+  if ($('#streakValue')) $('#streakValue').innerHTML = `${streakDays} <small>天</small>`;
+  const streakFoot = $('.metric-card:nth-child(4) .metric-foot span');
+  if (streakFoot) streakFoot.textContent = '保持每天的训练节拍';
   const todayIndex = pulseDays.findIndex(day => day.date === pulseToday);
   const defaultDate = pulseDays.some(day => day.date === selectedPulseDate) ? selectedPulseDate : pulseDays.find(day => day.isToday)?.date || pulseDays[todayIndex >= 0 ? todayIndex : Math.floor(pulseDays.length / 2)].date;
   selectPulseDay(defaultDate);
@@ -270,7 +280,7 @@ function applyLiveDashboardState(dashboard, submissions = []) {
   if (stageWeek) stageWeek.textContent = `WEEK ${String(week.number).padStart(2, '0')} / ${String(semester.totalWeeks || 0).padStart(2, '0')}`;
   const streak = Number(stats.streakWeeks || 0);
   if ($('#stageStreak')) $('#stageStreak').textContent = `${String(streak).padStart(2, '0')} 周`;
-  if ($('#streakValue')) $('#streakValue').innerHTML = `${streak} <small>周</small>`;
+
   if ($('#quickSubmissions')) $('#quickSubmissions').textContent = `${submissionCount} 次提交`;
   if ($('#quickPending')) $('#quickPending').textContent = '提交即计分';
   if ($('#quickRank')) $('#quickRank').textContent = stats.rank ? `训练排名 #${stats.rank}` : '排名 —';
@@ -398,7 +408,8 @@ async function completeMakeup(date) {
   const buttons = ['openSubmission', 'openSubmissionSecondary'].map(id => $('#'+id)).filter(Boolean);
   buttons.forEach(button => button.disabled = true);
   try {
-    const result = await window.CurrencyModule.performMakeupCheckin(date);
+    const alreadyOpen = pulseDays.find(day => day.date === date)?.makeupOpen === true;
+    const result = await window.CurrencyModule.performMakeupCheckin(date, {alreadyOpen});
     if (result) await refreshAfterMutation();
     return result;
   } finally {
@@ -467,12 +478,12 @@ async function loadRecentActivity({force = false} = {}) {
     if (!result.ok) { list.innerHTML = '<div class="queue-empty">最近提交加载失败，请刷新重试</div>'; return; }
     const submissions = result.submissions;
     if (!submissions.length) { list.innerHTML = '<div class="queue-empty">当前还没有提交记录</div>'; return; }
-    list.innerHTML = submissions.slice(0, 5).flatMap((submission) => submission.parts.map((part) => {
+    list.innerHTML = submissions.flatMap(submission => submission.parts.map(part => ({submission, part}))).slice(0, 2).map(({submission, part}) => {
       const status = part.status === 'approved' ? 'approved' : part.status === 'rejected' ? 'rejected' : 'pending';
       const label = part.kind === 'proof' ? '通过截图' : part.kind === 'logic' ? '写题逻辑' : 'Blog';
       const statusText = status === 'approved' ? '已计分' : status === 'rejected' ? '已退回' : '等待处理';
       return `<div class="submission-row"><div class="status-marker ${status}">${status === 'approved' ? '✓' : status === 'rejected' ? '!' : '◷'}</div><div class="submission-info"><strong>${label} · 第 ${submission.week} 周</strong><span>${new Date(submission.submitted_at).toLocaleString('zh-CN')} · ${statusText}</span></div><span class="score">+${part.points || 0} <small>分</small></span><span class="status-tag ${status}">${status === 'approved' ? '已通过' : status === 'rejected' ? '已退回' : '待审核'}</span></div>`;
-    })).join('');
+    }).join('');
   } catch (error) { if (requestVersion === activityRequestVersion) list.innerHTML = '<div class="queue-empty">最近提交加载失败，请检查网络连接</div>'; }
 }
 async function loadMySubmissions({force = false} = {}) {
@@ -490,13 +501,13 @@ async function loadMySubmissions({force = false} = {}) {
     if (!submissions.length) { if (empty) { empty.hidden = false; empty.innerHTML = '<div class="empty-icon">□</div><h2>这里会留下你的训练轨迹</h2><p>当前还没有提交记录。</p><button class="secondary-button" id="emptyAction" type="button">继续提交</button>'; $('#emptyAction')?.addEventListener('click', openModal); } return; }
     const list = document.createElement('div');
     list.className = 'panel my-submissions-live';
-    list.innerHTML = `<div class="panel-heading"><div><p class="section-label">PERSISTED RECORDS</p><h2>已保存的提交</h2></div><span class="muted">共 ${submissions.length} 条</span></div>` + submissions.map((item) => {
+    list.innerHTML = `<div class="panel-heading"><div><h2>历史提交记录</h2></div><span class="muted">共 ${submissions.length} 条</span></div>` + submissions.map((item) => {
       const key = `mine-${item.id}`;
       const proof = item.parts.find((part) => part.kind === 'proof');
       const logic = item.parts.find((part) => part.kind === 'logic');
       const blog = item.parts.find((part) => part.kind === 'blog');
       const reviewStatus = item.parts.some((part) => part.status === 'pending') ? 'pending' : item.parts.some((part) => part.status === 'approved') ? 'approved' : 'rejected';
-      reviewData[key] = {name:item.member_name, initial:item.member_name.slice(0,1), time:new Date(item.submitted_at).toLocaleString('zh-CN'), logic:logic?.text || '未提交写题逻辑。', visibility:item.visibility || 'team', status:reviewStatus, submissionId:item.id, upload:proof?.upload, fileName:'通过截图', blog:blog?.text || ''};
+      reviewData[key] = {name:item.member_name, initial:item.member_name.slice(0,1), time:new Date(item.submitted_at).toLocaleString('zh-CN'), logic:logic?.text || '未提交写题逻辑。', visibility:item.visibility || 'team', status:reviewStatus, submissionId:item.id, problemUrl:item.problem_url || '', upload:proof?.upload, fileName:'通过截图', blog:blog?.text || ''};
       const approved = item.parts.filter((part) => part.status === 'approved').reduce((sum, part) => sum + (part.points || 0), 0);
       return `<div class="live-submission-row"><div class="submission-thumb">${proof?.upload ? `<img src="${proof.upload}" alt="通过截图" />` : '<span>▧</span>'}</div><div class="live-submission-info"><strong>${escapeHtml(item.problem_title || '提交记录')}</strong><small>第${item.week}周 · 归属 ${escapeHtml(item.record_date || '')} · ${new Date(item.submitted_at).toLocaleString('zh-CN')}${item.rejection_note ? ' · 退回原因：' + escapeHtml(item.rejection_note) : ''}</small></div><span class="score">+${approved} 分</span><button class="review-view" type="button" data-review="${key}">查看内容</button>${item.can_resubmit ? `<button class="secondary-button" data-resubmit="${item.id}">修改重交</button>` : ""}</div>`;
     }).join('');
@@ -508,9 +519,15 @@ async function loadMySubmissions({force = false} = {}) {
 const reviewModal = $('#reviewModal');
 let activeReviewKey = null;
 let activeSubmissionId = null;
-function openReview(key) {
+let reviewReturnsToHistory = false;
+function openReview(key, returnToHistory = false) {
   const data = reviewData[key];
   if (!data) return;
+  reviewReturnsToHistory = returnToHistory;
+  const closeControl = $('#closeReview');
+  closeControl.innerHTML = returnToHistory ? '<svg class="ui-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 5-7 7 7 7"/></svg>' : '×';
+  closeControl.setAttribute('aria-label', returnToHistory ? '返回历史提交' : '关闭');
+  closeControl.title = returnToHistory ? '返回历史提交' : '关闭';
   activeReviewKey = key;
   activeSubmissionId = data.submissionId || null;
   const ownRecord = key.startsWith('mine-') ? ownRecords.get(Number(data.submissionId)) : null;
@@ -522,6 +539,16 @@ function openReview(key) {
   $('#reviewMember').textContent = data.name;
   $('#reviewAvatar').textContent = data.initial;
   $('#reviewTime').textContent = data.time;
+  const originalProblem = $('#reviewOriginalProblem');
+  originalProblem.hidden = true;
+  originalProblem.removeAttribute('href');
+  try {
+    const url = new URL(data.problemUrl);
+    if (['https:', 'http:'].includes(url.protocol)) {
+      originalProblem.href = url.href;
+      originalProblem.hidden = false;
+    }
+  } catch { /* Legacy records without a problem URL have no outbound action. */ }
   const reviewStatus = $('.review-author .status-tag');
   if (reviewStatus) {
     const approved = data.status === 'approved';
@@ -556,7 +583,16 @@ function wireShowcaseProofs(root=document) {
     button.addEventListener('click', () => openReview(button.dataset.review));
   });
 }
-$('#closeReview').addEventListener('click', closeReview);
+$('#closeReview').addEventListener('click', () => {
+  const restoreHistory = reviewReturnsToHistory;
+  closeReview();
+  reviewReturnsToHistory = false;
+  if (restoreHistory) {
+    historyModal.classList.add('open'); historyModal.setAttribute('aria-hidden', 'false');
+    const origin = [...historyModal.querySelectorAll('.history-view')].find(button => button.dataset.review === activeReviewKey);
+    (origin || $('#closeHistory')).focus();
+  }
+});
 reviewModal.addEventListener('click', (event) => { if (event.target.id === 'reviewModal') closeReview(); });
 const imageLightbox = $('#imageLightbox');
 function closeImageLightbox() { imageLightbox.classList.remove('open'); imageLightbox.setAttribute('aria-hidden','true'); $('#lightboxImage').removeAttribute('src'); }
@@ -589,9 +625,29 @@ function wireRankingControls(root=document) {
 wireRankingControls();
 initSegmentedControls();
 
-$('#teamButton').addEventListener('click', () => $('#teamMenu').classList.toggle('open'));
+function toggleTeamMenu(open) {
+  const menu = $('#teamMenu');
+  menu.classList.toggle('open', open);
+  menu.inert = !open;
+  $('#teamButton').setAttribute('aria-expanded', String(open));
+}
+$('#teamButton').addEventListener('click', () => toggleTeamMenu(!$('#teamMenu').classList.contains('open')));
+$('#teamButton').addEventListener('keydown', event => {
+  if (event.key !== 'ArrowDown') return;
+  event.preventDefault(); toggleTeamMenu(true); $('#teamMenu button')?.focus();
+});
+$('#teamMenu').addEventListener('keydown', event => {
+  if (event.key === 'Escape') {event.preventDefault();toggleTeamMenu(false);$('#teamButton').focus();return;}
+  if (event.key === 'Tab') {toggleTeamMenu(false);return;}
+  if (!['ArrowDown','ArrowUp','Home','End'].includes(event.key)) return;
+  event.preventDefault();
+  const buttons = $$('#teamMenu button');
+  const index = buttons.indexOf(document.activeElement);
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length-1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
+  buttons[next]?.focus();
+});
 // Team choices are populated from /api/me. Never switch to placeholder teams.
-document.addEventListener('click', (event) => { if (!event.target.closest('.team-switcher')) $('#teamMenu').classList.remove('open'); });
+document.addEventListener('click', (event) => { if (!event.target.closest('.team-switcher')) toggleTeamMenu(false); });
 
 $('#submissionForm').addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -659,10 +715,8 @@ function clearStaticPreview() {
   if (rank) rank.textContent = '—';
   const rankChange = $('.your-rank .rank-up');
   if (rankChange) rankChange.textContent = '加载中…';
-  const memberCount = $('#membersView .date-chip');
   const leaderboardLabel = $('#leaderboardWeekLabel');
   const showcaseLabel = $('.showcase-toolbar .filter-chip');
-  if (memberCount) memberCount.textContent = '— 位成员';
   if (leaderboardLabel) leaderboardLabel.textContent = '加载中…';
   if (showcaseLabel) showcaseLabel.textContent = '加载中…';
   const featuredDelta = $('.metric-card.featured .metric-foot span:nth-child(2)');
@@ -778,6 +832,13 @@ async function refreshAfterMutation({refreshAdmin = false} = {}) {
 }
 
 window.addEventListener('personal-profile-saved', () => {
+  document.querySelectorAll('.synced-member-avatar').forEach(holder => {
+    holder.querySelector('img')?.remove();
+    const image = document.createElement('img');
+    image.alt = ''; image.onerror = () => image.remove();
+    image.src = `/api/members/${holder.dataset.avatarMember}/avatar?v=${Date.now()}`;
+    holder.append(image);
+  });
   refreshAfterMutation();
   if (currentView === 'members') loadMembersLive();
 });
@@ -801,7 +862,33 @@ async function loadLiveData() {
     if (!me.can_submit) ['openSubmission','openSubmissionSecondary','emptyAction','pulseJump'].forEach(id => { if ($('#'+id)) $('#'+id).hidden=true; });
 
     if (me.team?.name) { $('#teamName').textContent = me.team.name; const subtitle = $('.team-button-copy small'); if (subtitle) subtitle.textContent = me.team.code || '当前团队'; }
-    if (Array.isArray(me.teams)) { const menu=$('#teamMenu'); if(menu){ menu.innerHTML=me.teams.map(t=>`<button type="button" data-team-id="${t.team_id}" data-team="${escapeHtml(t.team__name)}"><span class="team-avatar small">${escapeHtml((t.team__name||'').slice(0,1))}</span>${escapeHtml(t.team__name)}</button>`).join(''); $$('#teamMenu button').forEach(button=>button.addEventListener('click',async()=>{const response=await clubApi.request('/api/team/select',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({team_id:button.dataset.teamId})}); if(response.ok) location.reload(); else showToast('无权进入该团队');})); } }
+    if (Array.isArray(me.teams)) {
+      const menu = $('#teamMenu');
+      menu.innerHTML = '<div class="team-menu-options" role="group"></div>';
+      const options = $('.team-menu-options', menu);
+      me.teams.forEach(team => {
+        const button = document.createElement('button');
+        button.type = 'button'; button.dataset.teamId = team.team_id;
+        button.setAttribute('role', 'menuitemradio');
+        button.setAttribute('aria-checked', String(String(team.team_id) === String(me.team?.id)));
+        button.innerHTML = `<span class="team-avatar small">${escapeHtml((team.team__name || '').slice(0,1))}</span><span class="team-menu-name">${escapeHtml(team.team__name)}</span>`;
+        button.addEventListener('click', async () => {
+          if (button.disabled) return;
+          button.disabled = true;
+          try {
+            const response = await clubApi.request('/api/team/select', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({team_id:team.team_id})});
+            if (response.ok) location.reload(); else showToast('无权进入该团队');
+          } catch(error) {showToast('团队切换失败，请重试');}
+          finally {button.disabled=false;}
+        });
+        options.append(button);
+      });
+      const join = document.createElement('button');
+      join.type = 'button'; join.className = 'team-menu-join'; join.setAttribute('role','menuitem');
+      join.innerHTML = '<svg class="ui-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>加入团队</span>';
+      join.addEventListener('click', () => {toggleTeamMenu(false);window.openJoinTeamDialog();});
+      menu.append(join);
+    }
     const profile = $('.profile-chip');
     if (profile) { const avatar = profile.querySelector('.profile-avatar'); const name = profile.querySelector('strong'); const role = profile.querySelector('small'); if (avatar) avatar.textContent = (me.name || '').slice(0, 1); if (name) name.textContent = me.name || '当前账号'; if (role) role.textContent = me.site_admin ? '系统管理员' : me.is_team_manager ? '团队管理员' : '普通用户'; }
     window.PersonalProfile?.updateHeader(me);
@@ -836,13 +923,11 @@ async function loadMembersLive() {
     const payload = await response.json();
     if (requestVersion !== membersRequestVersion) return;
     const members = payload.members || [];
-    const count = $('#membersView .date-chip');
-    if (count) count.textContent = `${members.length} 位成员`;
     if (!members.length) {
       grid.innerHTML = '<div class="queue-empty">当前团队暂无成员数据</div>';
       return;
     }
-    grid.innerHTML = members.map((member) => `<article class="member-card" data-member="${escapeHtml(member.name)}"><div class="member-card-head"><span class="member-avatar dark">${escapeHtml(member.name.slice(0,1))}</span><div><strong>${escapeHtml(member.name)}</strong><small>${member.is_system_admin ? '系统管理员' : member.role === 'admin' ? '团队管理员' : '普通用户'}</small></div><span class="member-status">活跃</span></div><div class="member-card-stats"><div><span>本周提交</span><strong>${member.submissions} <small>次</small></strong></div><div><span>学期积分</span><strong>${member.score}</strong></div></div><div class="member-card-actions">${member.can_kick ? `<button class="member-action-button danger" type="button" data-member-kick="${member.id}" data-team-id="${member.team_id}" data-name="${escapeHtml(member.name)}" data-team-name="${escapeHtml(payload.team_name)}">踢出用户</button>` : ''}${member.can_manage_role ? `<button class="member-action-button" type="button" data-member-role="${member.role === 'admin' ? 'member' : 'admin'}" data-team-id="${member.team_id}" data-account="${escapeHtml(member.account)}">${member.role === 'admin' ? '取消团队管理' : '设置团队管理'}</button>` : ''}<button class="member-history-button" type="button" data-member-history="${member.id}">查看历史提交 <span>→</span></button></div></article>`).join('');
+grid.innerHTML = members.map((member) => `<article class="member-card" data-member="${escapeHtml(member.name)}"><div class="member-card-head">${memberAvatar(member.id,member.name,'member-avatar dark')}<div><strong>${escapeHtml(member.name)}</strong><small>${member.is_system_admin ? '系统管理员' : member.role === 'admin' ? '团队管理员' : '普通用户'}</small></div><span class="member-status">活跃</span></div><div class="member-card-stats"><div><span>本周提交</span><strong>${member.submissions} <small>次</small></strong></div><div><span>本周积分</span><strong>${member.score}</strong></div><div><span>本周 AC 题数</span><strong>${member.ac_problems ?? 0} <small>题</small></strong></div></div><div class="member-card-actions">${member.can_kick ? `<button class="member-action-button danger" type="button" data-member-kick="${member.id}" data-team-id="${member.team_id}" data-name="${escapeHtml(member.name)}" data-team-name="${escapeHtml(payload.team_name)}">踢出用户</button>` : ''}${member.can_manage_role ? `<button class="member-action-button" type="button" data-member-role="${member.role === 'admin' ? 'member' : 'admin'}" data-team-id="${member.team_id}" data-account="${escapeHtml(member.account)}">${member.role === 'admin' ? '取消团队管理' : '设置团队管理'}</button>` : ''}<button class="member-history-button" type="button" data-member-history="${member.id}">查看历史提交 <span>→</span></button></div></article>`).join('');
     members.forEach((member,index) => {
       if (!Object.hasOwn(member,'currency_balance')) return;
       const button=document.createElement('button'); button.type='button'; button.className='member-currency-button';
@@ -859,7 +944,29 @@ async function loadMembersLive() {
 clearStaticPreview(); loadLiveData();
 const historyModal = $('#memberHistoryModal');
 let activeHistoryMemberId = null;
+let historyFromMemberList = false;
+function updateHistorySelect(select, options, value) {
+  const selected = options.some(option => option.value === String(value)) ? String(value) : options[0]?.value || '';
+  if (select.tomselect) {
+    select.tomselect.clear(true);
+    select.tomselect.clearOptions();
+    select.tomselect.addOptions(options);
+    select.tomselect.setValue(selected, true);
+    select.tomselect.refreshOptions(false);
+  } else {
+    select.innerHTML = options.map(option => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.text)}</option>`).join('');
+    select.value = selected;
+    if (window.TomSelect) new TomSelect(select, {
+      create:false, maxItems:1, controlInput:null, searchField:[],
+      onInitialize() {
+        this.wrapper.classList.add('history-select', select.id === 'historySemester' ? 'history-semester-select' : 'history-week-select');
+        this.control.setAttribute('aria-label', select.id === 'historySemester' ? '选择学期' : '选择周次');
+      }
+    });
+  }
+}
 function openMemberHistory(key) {
+  historyFromMemberList = currentView === 'members';
   if (/^\d+$/.test(String(key))) { activeHistoryMemberId = Number(key); openLiveMemberHistory(Number(key)); return; }
   showToast('请从真实成员列表打开历史提交');
 }
@@ -878,13 +985,11 @@ async function openLiveMemberHistory(memberId) {
     const semesterList = (await semesterResponse.json()).semesters || [];
     if (requestVersion !== historyRequestVersion) return;
     const selected = semesterSelect.value;
-    semesterSelect.innerHTML = semesterList.map(item => `<option value="${item.id}">${escapeHtml(item.name)}${item.archived ? '（已归档）' : ''}</option>`).join('');
-    if (semesterList.some(item => String(item.id) === selected)) semesterSelect.value = selected;
+    updateHistorySelect(semesterSelect, semesterList.map(item => ({value:String(item.id),text:`${item.name}${item.archived ? '（已归档）' : ''}`})), selected);
     const semester = semesterList.find(item => String(item.id) === semesterSelect.value);
     if (semester && semesterSelect.dataset.weeksFor !== String(semester.id)) {
       const previousWeek = $('#historyWeek').value;
-      $('#historyWeek').innerHTML = semester.weeks.map(number => `<option value="${number}">第 ${number} 周</option>`).join('');
-      if (semester.weeks.includes(Number(previousWeek))) $('#historyWeek').value = previousWeek;
+      updateHistorySelect($('#historyWeek'), semester.weeks.map(number => ({value:String(number),text:`第 ${number} 周`})), previousWeek);
       semesterSelect.dataset.weeksFor = String(semester.id);
     }
     const week = $('#historyWeek').value;
@@ -902,13 +1007,13 @@ async function openLiveMemberHistory(memberId) {
       const logic = item.parts.find((part) => part.kind === 'logic');
       const blog = item.parts.find((part) => part.kind === 'blog');
       const reviewStatus = item.parts.some((part) => part.status === 'pending') ? 'pending' : item.parts.some((part) => part.status === 'approved') ? 'approved' : 'rejected';
-      reviewData[key] = {name:item.member_name, initial:item.member_name.slice(0,1), time:new Date(item.submitted_at).toLocaleString('zh-CN'), logic:logic?.text || '未提交写题逻辑。', visibility:item.visibility || 'team', status:reviewStatus, submissionId:item.id, upload:proof?.upload, fileName:'通过截图', blog:blog?.text || ''};
+      reviewData[key] = {name:item.member_name, initial:item.member_name.slice(0,1), time:new Date(item.submitted_at).toLocaleString('zh-CN'), logic:logic?.text || '未提交写题逻辑。', visibility:item.visibility || 'team', status:reviewStatus, submissionId:item.id, problemUrl:item.problem_url || '', upload:proof?.upload, fileName:'通过截图', blog:blog?.text || ''};
       const points = item.parts.reduce((sum, part) => sum + (part.points || 0), 0);
       const iconStatus = reviewStatus === 'approved' ? 'approved' : reviewStatus === 'rejected' ? 'pending' : 'pending';
       const icon = reviewStatus === 'approved' ? '✓' : reviewStatus === 'rejected' ? '!' : '◷';
       return `<div class="history-item"><div class="history-item-icon ${iconStatus}">${icon}</div><div><strong>第 ${item.week} 周提交</strong><small>归属 ${escapeHtml(item.record_date || '')} · ${new Date(item.submitted_at).toLocaleString('zh-CN')}</small></div><span>${points} 分</span><button class="history-view" type="button" data-review="${key}">查看内容</button></div>`;
     }).join('') : '<div class="queue-empty">该周暂无提交记录</div>';
-    $$('.history-view', $('#historyList')).forEach((button) => button.addEventListener('click', () => { closeMemberHistory(); openReview(button.dataset.review); }));
+    $$('.history-view', $('#historyList')).forEach((button) => button.addEventListener('click', () => { closeMemberHistory(); openReview(button.dataset.review, historyFromMemberList); }));
     $('#historyScore').textContent = `${payload.summary?.score || 0} 分`;
     $('#historyCount').textContent = `${payload.summary?.submissions || 0} 次`;
     const historyStatus = $('.history-summary > div:last-child strong');
@@ -917,6 +1022,7 @@ async function openLiveMemberHistory(memberId) {
       historyStatus.className = payload.summary.qualified ? 'positive' : 'pending-text';
     }
     $('#historyWeek').disabled = Boolean(payload.archived);
+    if ($('#historyWeek').tomselect) $('#historyWeek').tomselect[payload.archived ? 'disable' : 'enable']();
     $('.history-summary > div:first-child span').textContent = payload.archived ? '学期累计积分' : '本周积分';
     const subtitle = $('.history-author small');
     if (subtitle) subtitle.textContent = payload.archived ? `${payload.semester.name} · 已归档` : '本团队 · 按周查看训练记录';
@@ -937,12 +1043,20 @@ historyModal.addEventListener('click', (event) => { if (event.target.id === 'mem
 $('#historyWeek').addEventListener('change', (event) => { if (activeHistoryMemberId) openLiveMemberHistory(activeHistoryMemberId); else showToast(`已切换到第 ${event.target.value.padStart(2,'0')} 周历史提交`); });
 $$('.history-view').forEach((button) => button.addEventListener('click', () => {
   closeMemberHistory();
-  openReview(button.dataset.review);
+  openReview(button.dataset.review, historyFromMemberList);
 }));
 
 $('#memberSearch').addEventListener('input', (event) => {
+  $('#memberSearchClear').hidden = !event.target.value;
   const query = event.target.value.trim().toLowerCase();
   $$('#membersGrid .member-card').forEach((card) => { card.style.display = !query || card.dataset.member.toLowerCase().includes(query) ? '' : 'none'; });
+});
+
+$('#memberSearchClear').addEventListener('click', () => {
+  const input = $('#memberSearch');
+  input.value = '';
+  input.dispatchEvent(new Event('input', {bubbles:true}));
+  input.focus();
 });
 
 // Resolve the current platform challenge without delaying the submission form.
@@ -999,53 +1113,6 @@ $('#deleteOwnSubmission').addEventListener('click', async () => {
   } catch (error) { showToast(error.message); }
 });
 
-// The editor has its own navigation and is intentionally excluded.
-const secondaryWindows = [...document.querySelectorAll('.modal-backdrop, .image-lightbox')];
-const secondaryParents = new Map();
-let secondaryOrigin = null;
-let secondaryRestoring = null;
-let previousOpenWindows = new Set(secondaryWindows.filter(el => el.classList.contains('open')));
-function currentSecondaryWindow() {
-  const open = secondaryWindows.filter(el => el.classList.contains('open'));
-  return open.find(el => el.classList.contains('image-lightbox')) || open.at(-1) || null;
-}
-document.addEventListener('click', event => {
-  if (event.target.closest('#blogEditorOverlay, .window-back')) return;
-  secondaryOrigin = currentSecondaryWindow();
-}, true);
-const secondaryObserver = new MutationObserver(() => {
-  const open = new Set(secondaryWindows.filter(el => el.classList.contains('open')));
-  for (const win of open) {
-    if (!previousOpenWindows.has(win) && win !== secondaryRestoring) {
-      secondaryParents.set(win, secondaryOrigin && secondaryOrigin !== win ? secondaryOrigin : null);
-    }
-  }
-  previousOpenWindows = open;
-  secondaryRestoring = null;
-});
-secondaryWindows.forEach(win => {
-  const close = win.querySelector('.modal-header .close-button, .image-lightbox-close');
-  if (!close) return;
-  const back = document.createElement('button');
-  back.type = 'button'; back.className = 'window-back'; back.textContent = '<';
-  back.setAttribute('aria-label', '返回上级窗口'); back.title = '返回上级窗口';
-  if (win.classList.contains('image-lightbox')) {
-    win.insertBefore(back, close);
-  } else {
-    const controls = document.createElement('div'); controls.className = 'window-controls';
-    close.before(controls); controls.append(back, close);
-  }
-  back.addEventListener('click', event => {
-    event.stopPropagation();
-    const parent = secondaryParents.get(win);
-    close.click();
-    if (parent && parent !== win) {
-      secondaryRestoring = parent;
-      parent.classList.add('open'); parent.setAttribute('aria-hidden', 'false');
-    }
-  });
-  secondaryObserver.observe(win, {attributes:true, attributeFilter:['class','aria-hidden']});
-});
 document.addEventListener('click', event => {
   const member = event.target.closest('[data-ranking-member]');
   if (member?.dataset.rankingMember && member.dataset.rankingMember !== 'undefined') openMemberHistory(member.dataset.rankingMember);

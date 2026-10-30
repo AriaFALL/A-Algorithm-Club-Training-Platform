@@ -9,6 +9,40 @@
   let data = null, tab = 'upcoming', page = 1, inFlight = null, loadedAt = 0, timer = null, active = false;
   let progress = {contests:[],status:'idle'}, progressTimer = null, claiming = false;
   const expanded = new Set();
+  const overview = document.querySelector('.contest-overview');
+  const nextTime = el('contestNextTime');
+  let overviewFrame = 0, overviewWidth = -1;
+  const fitOverview = () => {
+    overviewFrame = 0;
+    overview.classList.remove('next-on-second-row');
+    if (innerWidth <= 760 || !nextTime.getClientRects().length) return;
+    // Measure the real single-row layout, including the current localized time text.
+    const range = document.createRange(); range.selectNodeContents(nextTime);
+    const lines = new Set([...range.getClientRects()].filter(rect => rect.width > 0).map(rect => Math.round(rect.top)));
+    overview.classList.toggle('next-on-second-row', lines.size > 1);
+  };
+  const scheduleOverview = () => { if (!overviewFrame) overviewFrame = requestAnimationFrame(fitOverview); };
+  new ResizeObserver(entries => {
+    const width = entries[0].contentRect.width;
+    if (width !== overviewWidth) { overviewWidth = width; scheduleOverview(); }
+  }).observe(overview);
+  new MutationObserver(scheduleOverview).observe(nextTime, {childList:true, characterData:true, subtree:true});
+  addEventListener('resize', scheduleOverview);
+  document.fonts?.ready.then(scheduleOverview);
+  function syncContestTabs() {
+    const group = document.querySelector('.contest-tabs');
+    const selected = group?.querySelector('.segment.active');
+    if (!group || !selected) return;
+    let indicator = group.querySelector('.segment-indicator');
+    if (!indicator) {
+      indicator = document.createElement('i');
+      indicator.className = 'segment-indicator';
+      indicator.setAttribute('aria-hidden', 'true');
+      group.prepend(indicator);
+    }
+    group.style.setProperty('--segment-x', `${selected.offsetLeft}px`);
+    group.style.setProperty('--segment-width', `${selected.offsetWidth}px`);
+  }
   const now = () => data ? data.server_time + (Date.now() - loadedAt) / 1000 : Date.now() / 1000;
   const phase = c => now() < c.start ? 'upcoming' : now() < c.end ? 'running' : 'finished';
   const span = seconds => { const mins = Math.max(1, Math.ceil(seconds / 60)); return mins >= 1440 ? `${Math.floor(mins/1440)} 天 ${Math.floor(mins%1440/60)} 小时` : mins >= 60 ? `${Math.floor(mins/60)} 小时${mins%60 ? ` ${mins%60} 分` : ''}` : `${mins} 分钟`; };
@@ -34,7 +68,12 @@
     el('contestPageNumber').textContent = `${page} / ${pages}`;
     el('contestPrev').disabled = page === 1;
     el('contestNext').disabled = page === pages;
-    document.querySelectorAll('[data-contest-tab]').forEach(b => b.setAttribute('aria-pressed',String(b.dataset.contestTab === tab)));
+    document.querySelectorAll('[data-contest-tab]').forEach(b => {
+      const selected = b.dataset.contestTab === tab;
+      b.setAttribute('aria-pressed',String(selected));
+      b.classList.toggle('active', selected);
+    });
+    syncContestTabs();
     const groups = new Map();
     matches.slice((page-1)*12,page*12).forEach(c => { const key = day(c.start); if (!groups.has(key)) groups.set(key,[]); groups.get(key).push(c); });
     const failed = calendar.sources.every(s => s.error && !s.stale);
@@ -163,7 +202,6 @@
   el('contestRefresh').addEventListener('click',() => load(true));
   el('contestSearch').addEventListener('input',() => {page=1;render();});
   el('contestPlatform').addEventListener('change',() => {page=1;render();});
-  el('contestReset').addEventListener('click',() => {el('contestSearch').value='';el('contestPlatform').value='';page=1;render();});
   document.querySelectorAll('[data-contest-tab]').forEach(b => b.addEventListener('click',() => {tab=b.dataset.contestTab;page=1;render();}));
   el('contestPrev').addEventListener('click',() => {page--;render();});
   el('contestNext').addEventListener('click',() => {page++;render();});

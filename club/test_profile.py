@@ -29,6 +29,26 @@ class ProfileTests(TestCase):
     def put(self, platform, account):
         return self.client.put('/api/profile/platforms/' + platform, json.dumps({'account': account}), content_type='application/json')
 
+    def test_member_avatar_is_team_scoped(self):
+        url = f'/api/members/{self.member.pk}/avatar'
+        self.assertEqual(Client().get(url).status_code, 401)
+        with tempfile.TemporaryDirectory() as media, override_settings(MEDIA_ROOT=media):
+            image = io.BytesIO()
+            Image.new('RGB', (16, 16), 'red').save(image, format='PNG')
+            self.assertEqual(self.client.post('/api/profile', {
+                'name': 'Old name', 'avatar': SimpleUploadedFile('avatar.png', image.getvalue(), content_type='image/png')
+            }).status_code, 200)
+            self.client.force_login(self.other)
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response['Content-Type'], 'image/jpeg')
+            self.assertTrue(b''.join(response.streaming_content))
+            other_team = Team.objects.create(name='Private', code='AVATARPRIVATE', created_by=self.root)
+            outsider = User.objects.create_user('avatar-outsider')
+            TeamMembership.objects.create(user=outsider, team=other_team, display_name='Outsider')
+            self.client.force_login(outsider)
+            self.assertEqual(self.client.get(url).status_code, 404)
+
     def test_global_luogu_cookie_encrypted_and_admin_only(self):
         from .models import ParserSettings
         from .problem_parser import key_cipher

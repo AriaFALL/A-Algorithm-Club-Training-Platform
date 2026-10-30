@@ -1,0 +1,69 @@
+/* Scoped Tom Select skin: only the submission showcase week picker. */
+.gallery-week-picker{position:relative;width:350px;max-width:100%;color:#245EC0}
+.gallery-week-picker[hidden]{display:none}
+#showcaseView #galleryWeek.tomselected{display:none!important}
+.gallery-week-picker .week-calendar{position:absolute;left:14px;top:13px;width:20px;height:20px;pointer-events:none;z-index:2}
+.gallery-week-picker .ts-wrapper{width:100%;font:inherit}
+#showcaseView .gallery-week-picker .ts-control{min-height:46px;padding:12px 40px 12px 44px;border:1px solid #D5E5FB;border-radius:14px;background:#FFFFFF;color:#203654;box-shadow:0 4px 14px #20365406;cursor:pointer;gap:0;transition:border-color .18s,box-shadow .18s}
+.gallery-week-picker .ts-wrapper.single .ts-control:after{right:17px;border:solid #65758E;border-width:0 1.7px 1.7px 0;width:7px;height:7px;transform:rotate(45deg);margin-top:-5px;transition:transform .18s}
+.gallery-week-picker .ts-wrapper.single.dropdown-active .ts-control:after{transform:rotate(225deg);margin-top:-1px}
+#showcaseView .gallery-week-picker .focus .ts-control{border-color:#245EC0;box-shadow:0 0 0 3px #DCEAFF}
+.gallery-week-picker .ts-control .item{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;font-weight:600;line-height:20px;max-width:100%}
+#showcaseView .gallery-week-picker input{background:transparent!important;border:0!important;box-shadow:none!important;outline:none!important;border-radius:0;min-height:0;font:inherit;color:#203654;padding:0!important}
+.gallery-week-picker .ts-dropdown{border:1px solid #D5E5FB;border-radius:16px;background:#FFFDF8;box-shadow:0 16px 40px #2036541a;padding:8px;margin-top:9px;overflow:hidden;color:#203654;z-index:40}
+.gallery-week-picker .ts-dropdown .dropdown-input-wrap{padding:2px 2px 8px}
+#showcaseView .gallery-week-picker .dropdown-input{width:100%;background:#F6F9FF!important;border:1px solid #D5E5FB!important;border-radius:9px;padding:10px 12px!important;font-size:13px}
+.gallery-week-picker .ts-dropdown-content{max-height:260px;padding:0;overscroll-behavior:contain}
+.gallery-week-picker .ts-dropdown .option{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 10px;margin:2px 0;border-radius:10px;line-height:20px;font-size:12px;cursor:pointer}
+.gallery-week-picker .week-option strong{flex-shrink:0;font-size:12px;font-weight:600;border-radius:7px;padding:2px 8px;color:#245EC0;background:#DCEAFF}
+.gallery-week-picker .ts-dropdown .option.active{background:#F1EEE8;color:#203654}
+.gallery-week-picker .ts-dropdown .option.selected{background:#DCEAFF;color:#245EC0}
+.gallery-week-picker .ts-dropdown .option.selected strong{background:#FFFFFF}
+.gallery-week-picker .week-option-label{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.gallery-week-picker .ts-dropdown .option.is-current-week{background:#F6F9FF}
+.gallery-week-picker .ts-dropdown .option.is-current-week.active,.gallery-week-picker .ts-dropdown .option.is-current-week.selected{background:#DCEAFF}
+.gallery-week-picker .current-week-tag{font-size:10px;color:#245EC0;font-weight:600;white-space:nowrap}
+.gallery-week-picker .ts-dropdown .no-results{padding:18px 10px;color:#65758E;font-size:13px}
+@media(max-width:480px){.gallery-week-picker{width:100%}.gallery-week-picker .ts-dropdown .option{gap:6px;padding:11px 8px}.gallery-week-picker .ts-control .item{font-size:12px}}
+@media(prefers-reduced-motion:reduce){.gallery-week-picker *{transition:none!important}}
+
+/* Compact, non-searchable platform filters for rankings and contest schedules. */
+.page-view select.platform-select-native{display:none!important}
+.page-view .platform-select{display:inline-block;width:184px;max-width:100%;min-width:0;font:inherit;vertical-align:middle}
+.page-view .platform-select .ts-control{min-height:40px;padding:10px 34px 10px 13px;border:1px solid #D5E5FB;border-radius:12px;background:#FFFFFF;color:#203654;box-shadow:0 3px 12px #20365406;cursor:pointer;transition:border-color .18s,box-shadow .18s}
+.page-view .platform-select .ts-control .item{font-size:12px;font-weight:600;line-height:18px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;max-width:100%}
+.page-view .platform-select.single .ts-control:after{right:14px;border:solid #65758E;border-width:0 1.7px 1.7px 0;width:6px;height:6px;transform:rotate(45deg);margin-top:-5px;transition:transform .18s}
+.page-view .platform-select.single.dropdown-active .ts-control:after{transform:rotate(225deg);margin-top:-1px}
+.page-view .platform-select.focus .ts-control{border-color:#245EC0;box-shadow:0 0 0 3px #DCEAFF}
+.page-view .platform-select .ts-dropdown{border:1px solid #D5E5FB;border-radius:14px;background:#FFFDF8;box-shadow:0 14px 32px #2036541a;padding:6px;margin-top:7px;overflow:hidden;color:#203654;z-index:40}
+.page-view .platform-select .ts-dropdown-content{padding:0;max-height:280px;overscroll-behavior:contain}
+.page-view .platform-select .option{border-radius:8px;padding:10px;font-size:12px;line-height:18px;cursor:pointer}
+.page-view .platform-select .option.active{background:#F1EEE8;color:#203654}
+.page-view .platform-select .option.selected{background:#DCEAFF;color:#245EC0;font-weight:600}
+.page-view .platform-select .ts-control:focus-visible{outline:none}
+#dashboardView .platform-select .ts-dropdown-content{max-height:76px;overflow-y:auto;touch-action:pan-y}
+#dashboardView .platform-select .option{height:38px;box-sizing:border-box;white-space:nowrap}
+@media(max-width:760px){#dashboardView .platform-select .ts-dropdown-content{max-height:38px}}
+@media(max-width:480px){.page-view .platform-select{width:172px}}
+@media(prefers-reduced-motion:reduce){.page-view .platform-select *{transition:none!important}}
+
+/* Historical submissions: five visible options, no search field. */
+#memberHistoryModal select.tomselected{display:none!important}
+#memberHistoryModal .history-author{flex-wrap:wrap}
+#memberHistoryModal .history-author>div:not(.history-select){flex-basis:calc(100% - 48px);min-width:0}
+#memberHistoryModal .history-author>.history-select{display:block;flex:0 1 auto;min-width:0;gap:0;position:relative}
+#memberHistoryModal .history-author>.history-semester-select{width:220px;max-width:100%;flex:1 1 0}
+#memberHistoryModal .history-week-select{width:108px;max-width:100%}
+#memberHistoryModal .history-select .ts-control{min-height:40px;padding:10px 30px 10px 12px;border:1px solid #D5E5FB;border-radius:11px;background:#FFFFFF;color:#203654;box-shadow:none;cursor:pointer}
+#memberHistoryModal .history-select .item{font-size:12px;line-height:18px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+#memberHistoryModal .history-select.single .ts-control:after{right:13px;border:solid #65758E;border-width:0 1.6px 1.6px 0;width:6px;height:6px;transform:rotate(45deg);margin-top:-5px}
+#memberHistoryModal .history-select.single.dropdown-active .ts-control:after{transform:rotate(225deg);margin-top:-1px}
+#memberHistoryModal .history-select.focus .ts-control{border-color:#245EC0;box-shadow:0 0 0 3px #DCEAFF}
+#memberHistoryModal .history-select .ts-control:focus-visible{outline:none}
+#memberHistoryModal .history-select .ts-dropdown{margin-top:7px;padding:6px;border:1px solid #D5E5FB;border-radius:13px;background:#FFFDF8;color:#203654;box-shadow:0 12px 28px #2036541a;overflow:hidden;z-index:60}
+#memberHistoryModal .history-select .ts-dropdown-content{max-height:190px;padding:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
+#memberHistoryModal .history-select .option{box-sizing:border-box;height:38px;padding:10px;line-height:18px;font-size:12px;border-radius:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+#memberHistoryModal .history-select .option.active{background:#F1EEE8;color:#203654}
+#memberHistoryModal .history-select .option.selected{background:#DCEAFF;color:#245EC0;font-weight:600}
+#memberHistoryModal .history-select.disabled .ts-control{background:#F6F9FF;opacity:.65;cursor:not-allowed}
+@media(max-width:760px){#memberHistoryModal .history-author>div:not(.history-select){flex-basis:calc(100% - 48px)}#memberHistoryModal .history-semester-select{width:calc(100% - 117px);flex:1 1 0}#memberHistoryModal .history-week-select{width:108px;flex:0 0 108px}}

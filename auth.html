@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
@@ -100,21 +100,22 @@
       .auth-shell::before{left:auto;right:8%;top:2%}
     }
   </style>
-</head>
+<link rel="stylesheet" href="styles/site-theme.css" /><link rel="stylesheet" href="static/glass-drag.css?v=1"></head>
 <body>
   <main class="auth-shell">
     <section class="auth-story" aria-label="训练台介绍"><span class="auth-story-label">PULSE ATLAS · ALGORITHM CLUB</span><h1>把每一周，写成你的进步。</h1><p>提交截图、写题逻辑和 Blog，把个人训练变成团队看得见的节奏。</p><div class="auth-story-stat"><span>每周训练</span><span>审核反馈</span><span>积分成长</span></div></section>
     <div class="auth-entry">
-    <div class="auth-brand"><div class="brand-mark">A</div><div><div class="brand-name">算法社团</div><div class="brand-subtitle">训练台</div></div></div>
+    <div class="auth-brand"><div class="brand-mark brand-emblem"><img src="static/images/rbc-emblem.png" alt="RBC 会徽" /></div><div><div class="brand-name">红细胞编程协会</div><div class="brand-subtitle">训练台</div></div></div>
     <section class="auth-card">
-      <div class="auth-tabs"><button class="active" type="button">登录</button></div>
-      <form class="auth-form active" id="loginForm"><h1>账号登录</h1><p>登录后进入训练台，可在主界面切换团队。</p><label class="auth-field">账号<input name="account" autocomplete="username" required placeholder="你的账号…" /></label><label class="auth-field">密码<input name="password" autocomplete="current-password" required type="password" placeholder="请输入密码…" /></label><button class="primary-button auth-submit" type="submit">登录 <span>→</span></button></form>
+      <div class="auth-tabs" role="tablist" aria-label="账号入口"><span class="auth-glass-indicator" aria-hidden="true"></span><button class="active" id="loginTab" role="tab" aria-selected="true" aria-controls="loginForm" data-auth-tab="login" type="button">登录</button><button id="registerTab" role="tab" aria-selected="false" aria-controls="registerForm" tabindex="-1" data-auth-tab="register" type="button">注册</button></div>
+      <form class="auth-form active" id="loginForm" role="tabpanel" aria-labelledby="loginTab"><h1>账号登录</h1><label class="auth-field">账号<input name="account" autocomplete="username" required placeholder="你的账号…" /></label><label class="auth-field">密码<input name="password" autocomplete="current-password" required type="password" placeholder="请输入密码…" /></label><button class="primary-button auth-submit" type="submit">登录 <span>→</span></button></form>
+      <form class="auth-form" id="registerForm" role="tabpanel" aria-labelledby="registerTab" hidden><h1>注册账号</h1><label class="auth-field">账号<input name="account" autocomplete="username" minlength="3" maxlength="150" required placeholder="至少 3 位" /></label><label class="auth-field">密码<input name="password" autocomplete="new-password" type="password" minlength="8" maxlength="128" required placeholder="至少 8 位" /></label><label class="auth-field">确认密码<input name="confirm_password" autocomplete="new-password" type="password" minlength="8" maxlength="128" required placeholder="再次输入密码" /></label><label class="auth-field">当前年级<select name="grade" required><option value="">请选择年级</option><option value="0">大一上</option><option value="1">大一下</option><option value="2">大二上</option><option value="3">大二下</option><option value="4">大三+</option></select></label><button class="primary-button auth-submit" type="submit">注册账号</button></form>
       <div class="auth-message" id="authMessage" role="status" aria-live="polite"></div>
     </section>
-    <p class="auth-hint"><a href="/register.html" style="color:var(--teal-dark);font-weight:700">注册新账号</a><br>你的密码仅用于平台登录，平台不会收集牛客或 LeetCode 密码。</p>
     </div>
   </main>
   <script src="api.js"></script>
   <script src="auth.js"></script>
+  <script src="static/glass-drag.js?v=1"></script>
 </body>
 </html>
