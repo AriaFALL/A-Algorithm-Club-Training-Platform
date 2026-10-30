@@ -517,6 +517,17 @@ async function loadRecentActivity({force = false} = {}) {
     }).join('');
   } catch (error) { if (requestVersion === activityRequestVersion) list.innerHTML = '<div class="queue-empty">最近提交加载失败，请检查网络连接</div>'; }
 }
+function groupMySubmissions(submissions) {
+  const sorted = [...submissions].sort((a, b) => b.record_date.localeCompare(a.record_date)
+    || Date.parse(b.submitted_at) - Date.parse(a.submitted_at) || b.id - a.id);
+  const groups = new Map();
+  for (const item of sorted) {
+    if (!groups.has(item.record_date)) groups.set(item.record_date, []);
+    groups.get(item.record_date).push(item);
+  }
+  return [...groups];
+}
+
 async function loadMySubmissions({force = false} = {}) {
   const page = $('#submissionsView');
   if (!page) return;
@@ -532,7 +543,11 @@ async function loadMySubmissions({force = false} = {}) {
     if (!submissions.length) { if (empty) { empty.hidden = false; empty.innerHTML = '<div class="empty-icon">□</div><h2>这里会留下你的训练轨迹</h2><p>当前还没有提交记录。</p><button class="secondary-button" id="emptyAction" type="button">继续提交</button>'; $('#emptyAction')?.addEventListener('click', openModal); } return; }
     const list = document.createElement('div');
     list.className = 'panel my-submissions-live';
-    list.innerHTML = `<div class="panel-heading"><div><h2>历史提交记录</h2></div><span class="muted">共 ${submissions.length} 条</span></div>` + submissions.map((item) => {
+    const today = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Shanghai', year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date());
+    const dateFormat = new Intl.DateTimeFormat('zh-CN', {timeZone:'Asia/Shanghai', year:'numeric', month:'long', day:'numeric', weekday:'short'});
+    list.innerHTML = `<div class="panel-heading"><div><h2>历史提交记录</h2></div><span class="muted">共 ${submissions.length} 条</span></div>` + groupMySubmissions(submissions).map(([day, items]) => {
+      const label = `${day === today ? '今天 · ' : ''}${dateFormat.format(new Date(`${day}T12:00:00+08:00`))}`;
+      return `<section class="my-submission-day"><h3 class="my-submission-date">${escapeHtml(label)}<small>${items.length} 条</small></h3>` + items.map((item) => {
       const key = `mine-${item.id}`;
       const proof = item.parts.find((part) => part.kind === 'proof');
       const logic = item.parts.find((part) => part.kind === 'logic');
@@ -541,6 +556,7 @@ async function loadMySubmissions({force = false} = {}) {
       reviewData[key] = {name:item.member_name, initial:item.member_name.slice(0,1), time:new Date(item.submitted_at).toLocaleString('zh-CN'), logic:logic?.text || '未提交写题逻辑。', visibility:item.visibility || 'team', status:reviewStatus, submissionId:item.id, problemUrl:item.problem_url || '', upload:proof?.upload, fileName:'通过截图', blog:blog?.text || ''};
       const approved = item.parts.filter((part) => part.status === 'approved').reduce((sum, part) => sum + (part.points || 0), 0);
       return `<div class="live-submission-row"><div class="submission-thumb">${proof?.upload ? `<img src="${proof.upload}" alt="通过截图" />` : '<span>▧</span>'}</div><div class="live-submission-info"><strong>${escapeHtml(item.problem_title || '提交记录')}</strong><small>第${item.week}周 · 归属 ${escapeHtml(item.record_date || '')} · ${new Date(item.submitted_at).toLocaleString('zh-CN')}${item.rejection_note ? ' · 退回原因：' + escapeHtml(item.rejection_note) : ''}</small></div><span class="score">+${approved} 分</span><button class="review-view" type="button" data-review="${key}">查看内容</button>${item.can_resubmit ? `<button class="secondary-button" data-resubmit="${item.id}">修改重交</button>` : ""}</div>`;
+      }).join('') + '</section>';
     }).join('');
     if (empty) empty.hidden = true;
     page.appendChild(list);
