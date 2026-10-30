@@ -185,6 +185,9 @@ body:has(.auth-shell){background:#f5fbf8;padding:32px 22px!important}.auth-shell
 .submission-thumb{width:46px;height:46px;border:1px solid #d8e5f5;border-radius:11px;background:#edf4ff;box-shadow:0 3px 9px rgba(40,83,142,.08)}
 .live-submission-info strong{font-size:12px;color:#173b68}.live-submission-info small{font-size:10px;color:#6e87a5}
 .live-submission-row .review-view{font-size:11px}
+.my-submission-day+.my-submission-day{margin-top:26px}
+.my-submission-date{display:flex;align-items:center;gap:12px;margin:0 0 14px;font-size:15px;color:var(--ink)}
+.my-submission-date small{font-size:11px;font-weight:400;color:var(--muted)}
 .member-card-head .member-status{border:1px solid #ccebdc;background:#e8f7ef;color:#217f62}
 .member-status.offline{border-color:#f2dfba;background:#fff6df;color:#9d711c}
 .member-history-button{padding:9px 8px;border-radius:8px;transition:background .2s ease,color .2s ease}
