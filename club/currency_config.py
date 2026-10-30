@@ -1,7 +1,11 @@
 """Validated team currency settings shared by both management endpoints."""
 import re
+import base64
+import binascii
+from io import BytesIO
 import uuid
 import xml.etree.ElementTree as ET
+from PIL import Image
 
 from django.core.files.base import ContentFile
 
@@ -73,7 +77,7 @@ def validate_config(data):
         except ET.ParseError:
             raise ValueError('SVG 图标格式无效')
         allowed = {'svg','g','defs','path','rect','circle','ellipse','line','polyline','polygon',
-                   'linearGradient','radialGradient','stop','clipPath','mask','use','symbol','title','desc'}
+                   'linearGradient','radialGradient','stop','clipPath','mask','use','symbol','title','desc','image'}
         if root.tag.split('}')[-1] != 'svg':
             raise ValueError('请上传 SVG 图标')
         for node in root.iter():
@@ -81,8 +85,22 @@ def validate_config(data):
                 raise ValueError('SVG 仅支持静态图形，不支持脚本、样式表或嵌入内容')
             for key, value in node.attrib.items():
                 attr = key.split('}')[-1].lower()
+                embedded_image = False
+                if node.tag.split('}')[-1] == 'image' and attr == 'href' and value.startswith('data:'):
+                    match = re.fullmatch(r'data:image/(png|jpeg|webp);base64,([A-Za-z0-9+/=\s]+)', value)
+                    if not match:
+                        raise ValueError('SVG 内嵌图片仅支持 PNG、JPEG 或 WebP')
+                    try:
+                        content = base64.b64decode(re.sub(r'\s+', '', match[2]), validate=True)
+                        with Image.open(BytesIO(content)) as image:
+                            if image.format != {'png':'PNG', 'jpeg':'JPEG', 'webp':'WEBP'}[match[1]] or getattr(image, 'is_animated', False):
+                                raise ValueError('invalid static image')
+                            image.verify()
+                    except (ValueError, binascii.Error, OSError, SyntaxError, Image.DecompressionBombError):
+                        raise ValueError('SVG 内嵌图片格式无效')
+                    embedded_image = True
                 urls = re.findall(r'url\((.*?)\)', value, re.I)
-                if attr.startswith('on') or (attr in ('href','src') and not value.startswith('#')) or re.search(r'@import|expression\(', value, re.I) or any(not url.strip(" \t\r\n\"'").startswith('#') for url in urls):
+                if attr.startswith('on') or (attr in ('href','src') and not value.startswith('#') and not embedded_image) or re.search(r'@import|expression\(', value, re.I) or any(not url.strip(" \t\r\n\"'").startswith('#') for url in urls):
                     raise ValueError('SVG 图标不能包含脚本或外部资源')
 
 
