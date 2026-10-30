@@ -436,10 +436,41 @@ async function openModal(forceToday = false) {
   if (date) $('.form-note span').textContent = `记录日期：${date}`;
   $('#submissionForm').dataset.weekId = weekId || '';
   if (historical) $('.form-note span:last-child').textContent = '已开放补交 · 学期结束前有效';
-  $('#submissionModal').classList.add('open'); $('#submissionModal').setAttribute('aria-hidden','false'); $('#proofImage').focus();
+  lockSubmissionScroll();
+  $('#submissionModal').classList.add('open'); $('#submissionModal').setAttribute('aria-hidden','false'); $('#proofImage').focus({preventScroll:true});
 }
 
-function closeModal() { $('#submissionModal').classList.remove('open'); $('#submissionModal').setAttribute('aria-hidden','true'); }
+let submissionScrollState = null;
+function lockSubmissionScroll() {
+  if (submissionScrollState) return;
+  const properties = ['position', 'top', 'left', 'width', 'overflow'];
+  submissionScrollState = {
+    x: window.scrollX, y: window.scrollY,
+    styles: properties.map(name => [name, document.body.style.getPropertyValue(name), document.body.style.getPropertyPriority(name)]),
+  };
+  // A fixed body also prevents background touch scrolling in mobile Safari.
+  Object.assign(document.body.style, {
+    position: 'fixed', top: `-${submissionScrollState.y}px`,
+    left: `-${submissionScrollState.x}px`, width: '100%', overflow: 'hidden',
+  });
+}
+function closeModal() {
+  $('#submissionModal').classList.remove('open'); $('#submissionModal').setAttribute('aria-hidden','true');
+  if (!submissionScrollState) return;
+  const {x, y, styles} = submissionScrollState;
+  submissionScrollState = null;
+  styles.forEach(([name, value, priority]) => {
+    if (value) document.body.style.setProperty(name, value, priority);
+    else document.body.style.removeProperty(name);
+  });
+  const root = document.documentElement;
+  const behavior = root.style.getPropertyValue('scroll-behavior');
+  const priority = root.style.getPropertyPriority('scroll-behavior');
+  root.style.setProperty('scroll-behavior', 'auto', 'important');
+  window.scrollTo(x, y);
+  if (behavior) root.style.setProperty('scroll-behavior', behavior, priority);
+  else root.style.removeProperty('scroll-behavior');
+}
 
 $$('.nav-item[data-view]').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
 wirePulseAtlas();

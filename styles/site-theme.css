@@ -392,3 +392,5 @@ body:has(.auth-shell)::before,body:has(.auth-shell)::after,.auth-shell::before,.
  #reviewModal .screenshot-placeholder{grid-template-columns:minmax(0,1fr)}
  #reviewModal #zoomReviewImage{justify-self:start}
 }
+.modal-backdrop#submissionModal{overscroll-behavior:none}
+#submissionModal>.modal{max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
