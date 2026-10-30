@@ -116,6 +116,17 @@ class CurrencyIntegrationTests(TestCase):
             self.assertEqual(self.config(currency_icon_svg=None).status_code,200)
             self.assertEqual(self.client.get(url).status_code,404)
 
+    def test_svg_icon_larger_than_128kb_can_be_saved_and_served(self):
+        with tempfile.TemporaryDirectory() as folder, override_settings(MEDIA_ROOT=folder):
+            svg = '<svg xmlns="http://www.w3.org/2000/svg"><desc>' + '图标' * 30000 + '</desc><circle r="10"/></svg>'
+            self.assertGreater(len(svg.encode('utf-8')), 131072)
+            response = self.config(currency_icon_svg=svg)
+            self.assertEqual(response.status_code, 200, response.content)
+            response = self.client.get(response.json()['currency_icon'])
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(b''.join(response.streaming_content).decode(), svg)
+            self.assertEqual(self.config(currency_icon_svg=123).status_code, 400)
+
     def test_shop_image_edit_serves_bytes_and_all_lists_use_private_url(self):
         self.config()
         item = ShopItem.objects.get(team=self.team, item_type='makeup_ticket')
